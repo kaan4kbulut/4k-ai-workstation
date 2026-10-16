@@ -47,7 +47,7 @@ async function startBackend() {
   const { cmd, args, cwd } = backendCommand(backendPort);
   backend = spawn(cmd, args, {
     cwd,
-    env: { ...process.env, FOURK_DESKTOP_TOKEN: TOKEN, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' },
+    env: { ...process.env, FOURK_DESKTOP_TOKEN: TOKEN, PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
     stdio: ['pipe', 'pipe', 'pipe'], // stdin açık kalır; uygulama ölürse arka uç EOF görüp kapanır
     windowsHide: true,
   });

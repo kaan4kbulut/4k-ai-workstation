@@ -10,6 +10,9 @@ on:
 permissions:
   contents: write
 
+env:
+  PYTHONUTF8: "1" # Windows'ta Python dosya ve konsol için cp1252 yerine UTF-8 kullansın
+
 jobs:
   build:
     strategy:

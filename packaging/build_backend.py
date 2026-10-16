@@ -31,6 +31,10 @@ EXCLUDES = ["textual", "tkinter", "pytest"]
 
 
 def main() -> int:
+    # Windows konsolu varsayılan olarak cp1252 kullanır; ▶ ✓ ✗ gibi karakterler orada çöker.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     shutil.rmtree(DIST, ignore_errors=True)
     cmd = [
         sys.executable, "-m", "PyInstaller",
