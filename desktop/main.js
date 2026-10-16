@@ -115,6 +115,8 @@ ipcMain.handle('copy', (_e, text) => clipboard.writeText(String(text)));
 // Duman testi: FOURK_SMOKE_SCREENSHOT=/yol/ekran.png ile başlatılırsa arayüzü yükler, her sekmenin
 // ekran görüntüsünü alır ve kapanır (CI ve paket doğrulaması için; Linux CI'da xvfb-run ile).
 const SMOKE = process.env.FOURK_SMOKE_SCREENSHOT;
+// CI'daki sanal ekranda (xvfb) GPU yok; donanım hızlandırma açıkken capturePage başarısız olur.
+if (SMOKE) app.disableHardwareAcceleration();
 
 async function runSmokeTest() {
   const wc = mainWindow.webContents;

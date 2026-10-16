@@ -103,7 +103,7 @@ def restore_backup_archive(db: Database, archive: Path) -> dict[str, Any]:
         tmp_path = Path(tmp)
         with tarfile.open(archive, "r:gz") as tar:
             tar.extractall(tmp_path, filter="data")
-        manifest = json.loads((tmp_path / "manifest.json").read_text())
+        manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
         db_file = tmp_path / config.DB_PATH.name
         if not db_file.exists():
             raise RuntimeError("Yedek paketinde veritabanı yok")
@@ -176,7 +176,7 @@ class GoogleDrive:
             creds = flow.run_local_server(port=0, open_browser=True, timeout_seconds=300)
         else:
             raise RuntimeError("Google hesabı bağlı değil")
-        config.GOOGLE_TOKEN.write_text(creds.to_json())
+        config.GOOGLE_TOKEN.write_text(creds.to_json(), encoding="utf-8")
         config.GOOGLE_TOKEN.chmod(0o600)
         return creds
 

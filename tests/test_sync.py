@@ -6,19 +6,19 @@ def test_backup_restore_roundtrip(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path / "projects")
     monkeypatch.setattr(config, "BACKUP_DIR", tmp_path / "backups")
     (tmp_path / "projects" / "demo").mkdir(parents=True)
-    (tmp_path / "projects" / "demo" / "a.txt").write_text("merhaba")
+    (tmp_path / "projects" / "demo" / "a.txt").write_text("merhaba", encoding="utf-8")
 
     db = Database(tmp_path / "state.db")
     db.set_setting_sync("k", "v1")
     archive = sync.build_backup_archive(db)
 
     db.set_setting_sync("k", "v2")
-    (tmp_path / "projects" / "demo" / "a.txt").write_text("değişti")
+    (tmp_path / "projects" / "demo" / "a.txt").write_text("değişti", encoding="utf-8")
     manifest = sync.restore_backup_archive(db, archive)
 
     assert manifest["device"] == config.DEVICE_NAME
     assert db.get_setting_sync("k") == "v1"
-    assert (tmp_path / "projects" / "demo" / "a.txt").read_text() == "merhaba"
+    assert (tmp_path / "projects" / "demo" / "a.txt").read_text(encoding="utf-8") == "merhaba"
     assert list((tmp_path / "backups" / "pre-restore").glob("*.tar.gz"))
     db.close()
 

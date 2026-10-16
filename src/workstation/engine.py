@@ -7,6 +7,8 @@ import os
 import platform
 import re
 import shutil
+import subprocess
+import sys
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -224,23 +226,29 @@ async def _run(cmd: list[str], timeout: float = config.DISCOVERY_TIMEOUT) -> str
 
 def _ram_gb() -> float:
     try:
-        with open("/proc/meminfo") as f:
-            for line in f:
-                if line.startswith("MemTotal"):
-                    return round(int(line.split()[1]) / 1024 / 1024, 1)
-    except OSError:
-        pass
-    return 0.0
+        import psutil
+
+        return round(psutil.virtual_memory().total / 1024**3, 1)
+    except Exception:
+        return 0.0
 
 
 def _cpu_name() -> str:
-    try:
-        with open("/proc/cpuinfo") as f:
-            for line in f:
-                if line.startswith("model name"):
-                    return line.split(":", 1)[1].strip()
-    except OSError:
-        pass
+    if sys.platform.startswith("linux"):
+        try:
+            with open("/proc/cpuinfo", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("model name"):
+                        return line.split(":", 1)[1].strip()
+        except OSError:
+            pass
+    elif sys.platform == "darwin":
+        try:
+            out = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True, timeout=3)
+            if out.stdout.strip():
+                return out.stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            pass
     return platform.processor() or platform.machine()
 
 
