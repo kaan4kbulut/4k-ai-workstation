@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# 4K AI WORKSTATION başlatıcı
+set -e
+DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+UV="$(command -v uv || true)"
+[ -x "$HOME/.local/bin/uv" ] && UV="$HOME/.local/bin/uv"
+if [ -z "$UV" ]; then
+  echo "uv bulunamadı. Kurmak için: curl -LsSf https://astral.sh/uv/install.sh | sh" >&2
+  exit 1
+fi
+exec "$UV" run --quiet --project "$DIR" python -m workstation "$@"

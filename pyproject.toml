@@ -1,0 +1,42 @@
+[project]
+name = "fourk-workstation"
+version = "0.1.0"
+description = "4K AI WORKSTATION - evrensel yapay zeka çalışma masası"
+authors = [
+    { name = "cafer kaan akbulut", email = "caferkaanakbulut@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.15.0",
+    "ddgs>=9.16.0",
+    "duckduckgo-search>=8.1.1",
+    "fastapi>=0.143.2",
+    "google-api-python-client>=2.201.0",
+    "google-auth-oauthlib>=1.5.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.14.1",
+    "rich>=15.0.0",
+    "textual>=8.2.8",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+fourk-workstation = "workstation.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "workstation"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.22.3",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]

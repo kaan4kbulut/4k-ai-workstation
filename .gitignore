@@ -1,0 +1,17 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+/build/*
+!/build/icon.png
+!/build/icon.ico
+!/build/icon.svg
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Masaüstü derleme çıktıları
+node_modules/
+dist/

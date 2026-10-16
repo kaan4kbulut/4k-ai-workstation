@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4K AI WORKSTATION</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="../assets/icon.png" alt="" class="brand-icon">
+      <div>
+        <div class="brand-name">4K AI</div>
+        <div class="brand-sub">WORKSTATION <span id="app-version">v1.0</span></div>
+      </div>
+    </div>
+    <nav id="nav">
+      <button data-view="desk" class="active"><span>💻</span>Çalışma Masası</button>
+      <button data-view="chat"><span>💬</span>Sohbet &amp; Engine</button>
+      <button data-view="radar"><span>🔍</span>AI Radar &amp; Arama</button>
+      <button data-view="project"><span>📦</span>AI Project</button>
+      <button data-view="business"><span>🏢</span>AI Business</button>
+      <button data-view="sync"><span>🔄</span>SYNC &amp; Cihazlar</button>
+    </nav>
+    <section class="side-block">
+      <h4>Bağlı Cihazlar</h4>
+      <ul id="side-nodes" class="node-list"><li class="muted">Taranıyor…</li></ul>
+    </section>
+    <section class="side-block">
+      <h4>Senkron Durumu</h4>
+      <div id="side-sync" class="side-sync muted">—</div>
+    </section>
+    <section class="side-block">
+      <h4>Aktif İşler</h4>
+      <ul id="jobs" class="jobs"><li class="muted">Boşta</li></ul>
+    </section>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div class="title">⚡ 4K AI WORKSTATION <span id="title-version">v1.0</span>
+        <span id="sync-badge" class="badge warn">SYNC Pasif</span></div>
+      <div class="gear" id="gear" role="radiogroup" aria-label="Vites">
+        <button data-gear="ekonomik">🟢 Ekonomik</button>
+        <button data-gear="dengeli">🔵 Dengeli</button>
+        <button data-gear="tam">🔴 Tam Güç</button>
+      </div>
+    </header>
+
+    <!-- Çalışma Masası -->
+    <section class="view active" id="view-desk">
+      <div class="toolbar">
+        <button id="btn-rescan">🔄 Yeniden Tara</button>
+        <button id="btn-reset-cooldown">♻️ Cooldown Sıfırla</button>
+      </div>
+      <div class="grid-2">
+        <div class="card"><h3>Sistem</h3><dl id="sysinfo" class="kv"><dt>Durum</dt><dd>Taranıyor…</dd></dl></div>
+        <div class="card"><h3>Yönlendirme</h3><div id="routing"></div></div>
+      </div>
+      <div class="card"><h3>Model Sağlayıcıları</h3>
+        <table><thead><tr><th>Sağlayıcı</th><th>Tür</th><th>Durum</th><th>Son Hata</th></tr></thead>
+          <tbody id="providers"></tbody></table></div>
+      <div class="card"><h3>Son Model Çağrıları</h3>
+        <table><thead><tr><th>Zaman</th><th>Sağlayıcı</th><th>Girdi tok.</th><th>Çıktı tok.</th></tr></thead>
+          <tbody id="usage"></tbody></table></div>
+    </section>
+
+    <!-- Sohbet -->
+    <section class="view" id="view-chat">
+      <div id="chat-log" class="chat-log"></div>
+      <div id="chat-status" class="status-line"></div>
+      <form id="chat-form" class="inputbar">
+        <textarea id="chat-input" rows="2" placeholder="Mesajınızı yazın… (Enter gönderir, Shift+Enter yeni satır)"></textarea>
+        <button type="submit" class="primary">Gönder</button>
+        <button type="button" id="chat-clear">🧹 Temizle</button>
+      </form>
+    </section>
+
+    <!-- Radar -->
+    <section class="view" id="view-radar">
+      <form id="radar-form" class="inputbar">
+        <select id="radar-mode">
+          <option value="quick">⚡ Hızlı</option>
+          <option value="deep">🕵️ Derin Araştırma</option>
+          <option value="github">🐙 GitHub Trend</option>
+        </select>
+        <input id="radar-input" placeholder="Ne aramak istiyorsunuz? (GitHub modunda konu: ai-agents, llm, memory, mcp)">
+        <button type="submit" class="primary">Ara</button>
+      </form>
+      <article id="radar-out" class="card markdown">
+        <p class="muted">Bir arama yapın. <b>Derin Araştırma</b> sayfaları indirip ENGINE ile kaynaklı Türkçe rapor üretir.</p>
+      </article>
+    </section>
+
+    <!-- Project -->
+    <section class="view" id="view-project">
+      <div class="grid-2">
+        <div class="card">
+          <h3>💡 Fikrinizi doğal dille anlatın</h3>
+          <textarea id="idea-input" rows="7" placeholder="Örn: Küçük kafeler için stok ve sipariş takibi yapan bir Telegram botu…"></textarea>
+          <button id="idea-go" class="primary wide">🧠 Analiz Et &amp; Biletlere Böl</button>
+        </div>
+        <div class="card">
+          <h3>Projeler</h3>
+          <table><thead><tr><th>#</th><th>Proje</th><th>Durum</th><th>Biletler</th></tr></thead>
+            <tbody id="projects" class="selectable"></tbody></table>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Biletler</h3>
+          <table><thead><tr><th>#</th><th>Başlık</th><th>Durum</th><th></th></tr></thead>
+            <tbody id="tickets"></tbody></table>
+        </div>
+        <article id="feasibility" class="card markdown"><p class="muted">Bir proje seçin.</p></article>
+      </div>
+    </section>
+
+    <!-- Business -->
+    <section class="view" id="view-business">
+      <div id="biz-summary" class="stats"></div>
+      <div class="card">
+        <h3>Gelir / Gider Ekle</h3>
+        <form id="ledger-form" class="inputbar wrap">
+          <select id="l-type"><option value="gider">➖ Gider</option><option value="gelir">➕ Gelir</option></select>
+          <input id="l-amount" type="number" step="0.01" min="0" placeholder="Tutar" required>
+          <select id="l-currency"><option>TRY</option><option>USD</option><option>EUR</option></select>
+          <input id="l-category" placeholder="Kategori">
+          <input id="l-note" placeholder="Not">
+          <select id="l-project"><option value="">Projesiz</option></select>
+          <button type="submit" class="primary">Ekle</button>
+        </form>
+        <table><thead><tr><th>Tarih</th><th>Tür</th><th class="num">Tutar</th><th>Kategori</th><th>Proje</th><th>Not</th><th></th></tr></thead>
+          <tbody id="ledger"></tbody></table>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Operasyonel Görevler</h3>
+          <form id="task-form" class="inputbar">
+            <input id="task-input" placeholder="Yeni görev">
+            <button type="submit">Ekle</button>
+          </form>
+          <ul id="tasks" class="task-list"></ul>
+        </div>
+        <div class="card">
+          <h3>Proje Bütçeleri</h3>
+          <table><thead><tr><th>Proje</th><th class="num">Bütçe</th><th class="num">Harcanan</th><th class="num">Gelir</th></tr></thead>
+            <tbody id="budgets"></tbody></table>
+          <h3>Token / Kota Kullanımı (30 gün)</h3>
+          <table><thead><tr><th>Sağlayıcı</th><th>Tür</th><th class="num">Çağrı</th><th class="num">Token</th></tr></thead>
+            <tbody id="token-costs"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sync -->
+    <section class="view" id="view-sync">
+      <div class="grid-2">
+        <div class="card">
+          <h3>☁️ Google Drive</h3>
+          <dl id="cloud" class="kv"></dl>
+          <div class="toolbar">
+            <button id="g-connect" class="primary">🔑 Google ile Bağlan</button>
+            <button id="g-backup">☁️ Şimdi Yedekle</button>
+            <button id="g-restore" class="danger">⏮️ En Yeni Yedeği Geri Yükle</button>
+            <button id="g-logout">🚪 Google Çıkış</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>🌐 Uzaktan Erişim (Tailscale)</h3>
+          <p class="muted">Diğer cihazlarınızın bu makineye Tailscale ağı üzerinden bağlanabilmesi için token korumalı API.</p>
+          <div id="remote-info" class="mono"></div>
+          <div class="toolbar"><button id="remote-toggle">Başlat</button></div>
+        </div>
+      </div>
+      <div class="card"><h3>Tailscale Cihaz Ağı</h3>
+        <table><thead><tr><th>Cihaz</th><th>IP</th><th>OS</th><th>Durum</th><th>Son Görülme</th></tr></thead>
+          <tbody id="nodes"></tbody></table></div>
+      <div class="card"><h3>Senkron Günlüğü</h3>
+        <table><thead><tr><th>Zaman</th><th>İşlem</th><th>Durum</th><th>Detay</th></tr></thead>
+          <tbody id="sync-log"></tbody></table></div>
+      <article id="sync-help" class="card markdown hidden"></article>
+    </section>
+  </main>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <dialog id="confirm">
+    <p id="confirm-text"></p>
+    <form method="dialog" class="toolbar end">
+      <button value="no">Vazgeç</button>
+      <button value="yes" class="danger">Evet</button>
+    </form>
+  </dialog>
+
+  <script src="../../node_modules/marked/lib/marked.umd.js"></script>
+  <script src="../../node_modules/dompurify/dist/purify.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

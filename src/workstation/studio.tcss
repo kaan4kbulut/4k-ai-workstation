@@ -1,0 +1,179 @@
+Screen {
+    layout: vertical;
+}
+
+#topbar {
+    height: 3;
+    background: $primary-darken-2;
+    padding: 0 1;
+}
+
+#title {
+    width: 1fr;
+    content-align: left middle;
+    height: 3;
+    color: $text;
+}
+
+#gear-label {
+    height: 3;
+    content-align: right middle;
+    padding: 0 1;
+}
+
+#gear {
+    width: 22;
+}
+
+#body {
+    height: 1fr;
+}
+
+#sidebar {
+    width: 30;
+    background: $panel;
+    border-right: tall $primary;
+    padding: 0 1;
+    overflow-y: auto;
+}
+
+.side-title {
+    margin-top: 1;
+    color: $accent;
+}
+
+#tabs {
+    width: 1fr;
+}
+
+.toolbar {
+    height: auto;
+    margin-bottom: 1;
+}
+
+.toolbar Button {
+    margin-right: 1;
+}
+
+.inputbar {
+    height: auto;
+}
+
+.inputbar Input {
+    width: 1fr;
+}
+
+.inputbar Button {
+    margin-left: 1;
+}
+
+.section {
+    margin-top: 1;
+    color: $accent;
+    text-style: bold;
+}
+
+.card {
+    border: round $primary;
+    padding: 0 1;
+    height: auto;
+}
+
+#desk-top {
+    height: auto;
+}
+
+#desk-top .card {
+    width: 1fr;
+}
+
+DataTable {
+    height: auto;
+    max-height: 14;
+}
+
+#chat-log {
+    height: 1fr;
+    border: round $primary;
+}
+
+#chat-status {
+    height: 1;
+    color: $text-muted;
+}
+
+#radar-mode {
+    width: 24;
+}
+
+#radar-scroll {
+    height: 1fr;
+    border: round $primary;
+    margin-top: 1;
+}
+
+#project-top {
+    height: 1fr;
+}
+
+#idea-box {
+    width: 40%;
+    padding-right: 1;
+}
+
+#idea-input {
+    height: 1fr;
+}
+
+#idea-box Button {
+    width: 100%;
+}
+
+#project-lists {
+    width: 60%;
+}
+
+#feasibility-scroll {
+    height: 1fr;
+    border: round $primary;
+}
+
+#biz-type {
+    width: 16;
+}
+
+#biz-currency {
+    width: 12;
+}
+
+#biz-project {
+    width: 22;
+}
+
+#api-info {
+    width: 1fr;
+    height: 3;
+    content-align: left middle;
+}
+
+ConfirmScreen {
+    align: center middle;
+}
+
+#confirm-box {
+    width: 70;
+    height: auto;
+    border: thick $error;
+    background: $surface;
+    padding: 1 2;
+}
+
+#confirm-buttons {
+    height: auto;
+    margin-top: 1;
+    align: center middle;
+}
+
+#confirm-buttons Button {
+    margin: 0 2;
+}

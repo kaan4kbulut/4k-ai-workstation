@@ -1,0 +1,125 @@
+{
+  "name": "4k-ai-workstation",
+  "productName": "4K AI Workstation",
+  "version": "1.0.0",
+  "description": "4K AI WORKSTATION — ENGINE, RADAR, PROJECT, BUSINESS ve SYNC modüllerinden oluşan yapay zeka çalışma masası",
+  "homepage": "https://github.com/kaan4kbulut/4k-ai-workstation",
+  "author": {
+    "name": "cafer kaan akbulut",
+    "email": "caferkaanakbulut@gmail.com"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "desktop/main.js",
+  "desktopName": "4k-ai-workstation.desktop",
+  "scripts": {
+    "dev": "electron .",
+    "build:backend": "node packaging/uv.js run python packaging/build_backend.py",
+    "pack": "npm run build:backend && electron-builder --dir",
+    "dist": "npm run build:backend && electron-builder",
+    "dist:linux": "npm run build:backend && electron-builder --linux",
+    "dist:win": "npm run build:backend && electron-builder --win",
+    "dist:mac": "npm run build:backend && electron-builder --mac",
+    "install:linux": "bash packaging/install-linux.sh",
+    "test": "node packaging/uv.js run pytest -q",
+    "tui": "node packaging/uv.js run python -m workstation"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.17",
+    "marked": "^18.1.1"
+  },
+  "devDependencies": {
+    "electron": "^44.7.2",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.caferkaan.fourk-ai-workstation",
+    "productName": "4K AI Workstation",
+    "executableName": "4k-ai-workstation",
+    "copyright": "Copyright © 2026 cafer kaan akbulut",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/backend/4k-backend",
+        "to": "backend",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "artifactName": "4K-AI-Workstation-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "target": [
+        "nsis",
+        "msi"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "4K AI Workstation",
+      "runAfterFinish": true
+    },
+    "msi": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "4K AI Workstation"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.developer-tools",
+      "identity": "-"
+    },
+    "dmg": {
+      "title": "4K AI Workstation ${version}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "pacman"
+      ],
+      "icon": "build/icon.png",
+      "category": "Development",
+      "synopsis": "Yapay zeka çalışma masası",
+      "maintainer": "cafer kaan akbulut <caferkaanakbulut@gmail.com>",
+      "desktop": {
+        "entry": {
+          "Name": "4K AI Workstation",
+          "Comment": "Yapay zeka çalışma masası",
+          "StartupWMClass": "4k-ai-workstation"
+        }
+      }
+    },
+    "pacman": {
+      "depends": [
+        "gtk3",
+        "nss",
+        "alsa-lib",
+        "libxss",
+        "libxtst",
+        "xdg-utils"
+      ],
+      "artifactName": "4K-AI-Workstation-${version}-linux-${arch}.pkg.tar.xz"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kaan4kbulut/4k-ai-workstation.git"
+  }
+}

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e3a8a"/>
+      <stop offset="1" stop-color="#0b1220"/>
+    </linearGradient>
+    <linearGradient id="fg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset="1" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="none" stroke="#3b82f6" stroke-opacity="0.5" stroke-width="12"/>
+  <g fill="none" stroke="#22d3ee" stroke-opacity="0.18" stroke-width="6">
+    <path d="M160 300h120l40 40M864 724H744l-40-40M160 724h80M864 300h-80"/>
+  </g>
+  <text x="512" y="600" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-weight="800"
+        font-size="360" fill="url(#fg)" letter-spacing="-12">4K</text>
+  <text x="512" y="760" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-weight="700"
+        font-size="96" fill="#e0f2fe" letter-spacing="24">AI</text>
+  <path d="M600 190 L540 330 h70 l-60 130 140-170 h-75 l55-110z" fill="#fbbf24"/>
+</svg>

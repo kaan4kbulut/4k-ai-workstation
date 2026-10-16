@@ -1,0 +1,86 @@
+# Üç platform için kurulum dosyalarını tek seferde üretir.
+# Tetikleme: `git tag v1.0.0 && git push --tags` veya Actions sekmesinden "Run workflow".
+name: Masaüstü Sürümü
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            script: dist:linux
+          - os: windows-latest
+            script: dist:win
+          - os: macos-latest
+            script: dist:mac
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Python bağımlılıkları
+        run: uv sync --frozen
+
+      - name: Testler
+        run: uv run pytest -q
+
+      - name: Node bağımlılıkları
+        run: npm ci
+
+      - name: Arch paketi aracı (bsdtar)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+
+      - name: Derle (${{ matrix.script }})
+        run: npm run ${{ matrix.script }} -- --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Duman testi (paketlenmiş Linux uygulaması)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y xvfb
+          FOURK_SMOKE_SCREENSHOT="$PWD/smoke.png" xvfb-run -a dist/linux-unpacked/4k-ai-workstation --no-sandbox
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 4k-ai-workstation-${{ matrix.os }}
+          path: |
+            dist/*.exe
+            dist/*.msi
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.pkg.tar.xz
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
