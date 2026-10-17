@@ -2,12 +2,14 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from core.dispatcher import Dispatcher
 from wrappers.ollama_wrapper import OllamaWrapper
-from wrappers.hermes_wrapper import HermesWrapper
 from core.router import IntelligentRouter
 from core.quota_manager import QuotaManager
 from core.planner import TaskPlanner
 from core.parallel_executor import ParallelExecutor
 from core.provider_config import load_provider_configs, build_wrapper
+from core.cli_registry import discover_cli_tools, register_available_cli_wrappers
+from core.librarian import ModelLibrarian
+from core.tech_scout import TechScout
 
 app = FastAPI(title="Nexus AI Studio API")
 dispatcher = Dispatcher()
@@ -15,16 +17,18 @@ router = IntelligentRouter()
 quota_manager = QuotaManager()
 planner = TaskPlanner()
 executor = ParallelExecutor(dispatcher, router)
+librarian = ModelLibrarian()
+tech_scout = TechScout()
 
-# Varsayılan wrapper'ları kaydet
+# Varsayılan yerel çalışma zamanını kaydet
 dispatcher.register_wrapper("Ollama", OllamaWrapper())
 
-# Hermes isteğe bağlıdır: yalnızca CLI gerçekten kuruluysa kaydedilir.
-hermes = HermesWrapper()
-if hermes.is_available():
-    dispatcher.register_wrapper("Hermes", hermes)
+# Sistemde kurulu CLI ajanlarını (Hermes, Codex, Claude Code, OpenCode) otomatik kaydet
+_registered_clis = register_available_cli_wrappers(dispatcher, router)
+if _registered_clis:
+    print(f"[Başlangıç] Kurulu CLI ajanları kaydedildi: {', '.join(_registered_clis)}")
 else:
-    print("[Başlangıç] Hermes CLI bulunamadı; 'Hermes' kaydedilmedi.")
+    print("[Başlangıç] Ek CLI ajanı bulunamadı.")
 
 # OpenAI uyumlu sağlayıcıları yapılandırmadan yükle (config/providers.json).
 # Böylece OpenRouter, HuggingFace, Perplexity, OpenAI vb. kod yazmadan eklenir.
@@ -63,6 +67,16 @@ async def get_status():
     }
 
 
+@app.get("/cli/tools")
+async def get_cli_tools():
+    tools = [t.to_dict() for t in discover_cli_tools()]
+    return {
+        "status": "ok",
+        "installed_count": sum(1 for t in tools if t["installed"]),
+        "tools": tools,
+    }
+
+
 @app.get("/hardware/info")
 async def hardware_info():
     try:
@@ -95,12 +109,59 @@ async def hardware_recommend():
             "info": {
                 "cpu_cores": info.cpu_cores,
                 "ram_gb": info.ram_gb,
+                "gpu_name": info.gpu_name,
                 "gpu_vram_gb": info.gpu_vram_gb,
             },
             "recommendations": [
                 {"model": r.model, "reason": r.reason, "fit": r.fit} for r in recs
             ],
         }
+    except Exception as exc:
+        return {"status": "error", "detail": str(exc)}
+
+
+@app.get("/hardware/benchmark")
+async def hardware_benchmark():
+    try:
+        from core.benchmark import benchmark
+
+        return {"status": "ok", "benchmark": benchmark()}
+    except Exception as exc:
+        return {"status": "error", "detail": str(exc)}
+
+
+@app.get("/librarian/catalog")
+async def librarian_catalog(task_type: str = "general", only_free: bool = False):
+    try:
+        from core.hardware import get_system_info
+
+        await librarian.refresh_catalog()
+        hw = get_system_info()
+        ranked = librarian.rank_models_for_task(
+            task_type=task_type,
+            max_vram_gb=hw.gpu_vram_gb,
+            only_free_or_local=only_free,
+        )
+        return {
+            "status": "ok",
+            "task_type": task_type,
+            "models": ranked,
+        }
+    except Exception as exc:
+        return {"status": "error", "detail": str(exc)}
+
+
+@app.get("/scout/report")
+async def scout_report():
+    try:
+        from core.hardware import get_system_info
+
+        installed_ollama = await librarian.fetch_installed_ollama_models()
+        report = tech_scout.analyze_system(
+            hw_info=get_system_info(),
+            installed_ollama_models=installed_ollama,
+        )
+        return {"status": "ok", **report}
     except Exception as exc:
         return {"status": "error", "detail": str(exc)}
 

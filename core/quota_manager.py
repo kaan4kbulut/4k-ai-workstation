@@ -7,6 +7,7 @@ DEFAULT_QUOTAS = {
     "Codex": {"limit": 100, "used": 0, "unit": "requests"},
     "Claude": {"limit": 50, "used": 0, "unit": "requests"},
     "Hermes": {"limit": 200, "used": 0, "unit": "requests"},
+    "OpenCode": {"limit": 200, "used": 0, "unit": "requests"},
 }
 
 
@@ -16,15 +17,15 @@ class QuotaManager:
         self.quotas = self._load_quotas()
 
     def _load_quotas(self) -> Dict:
+        base = {k: dict(v) for k, v in DEFAULT_QUOTAS.items()}
         if os.path.exists(self.quota_file):
-            with open(self.quota_file, "r") as f:
+            with open(self.quota_file, "r", encoding="utf-8") as f:
                 saved = json.load(f)
             # Kaydedilmiş sayaçları koru, ama dosya yazıldıktan sonra eklenen
             # modelleri (ör. yeni bir wrapper) de al ki kullanımları izlensin.
-            merged = dict(DEFAULT_QUOTAS)
-            merged.update(saved)
-            return merged
-        return dict(DEFAULT_QUOTAS)
+            for k, v in saved.items():
+                base[k] = dict(v) if isinstance(v, dict) else v
+        return base
 
     def _save_quotas(self):
         os.makedirs(os.path.dirname(self.quota_file), exist_ok=True)

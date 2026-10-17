@@ -1,156 +1,77 @@
 # 🚀 Nexus AI Studio
 
-Akıllı bir **AI orkestratörü ve model geçidi**. Birden fazla LLM sağlayıcısını
-(yerel ve bulut) yönetir; görevleri karmaşıklığına göre yönlendirir, kotaları
-takip eder ve alt görevleri paralel çalıştırır.
+**Nexus AI Studio**, yerel modeller (Ollama), bulut API sağlayıcıları (OpenRouter, HuggingFace, Perplexity, OpenAI, Groq) ve abonelik tabanlı CLI ajanlarını (**Hermes**, **OpenAI Codex**, **Claude Code**, **OpenCode**, **Antigravity**) tek bir merkezden yöneten akıllı yapay zeka orkestratörüdür.
 
-> **Durum:** çalışan MVP. FastAPI arka ucu + Streamlit paneli + Ollama ve Hermes
-> wrapper'ları uçtan uca doğrulandı. `Claude`/`Codex` katmanları tanımlı ama
-> henüz wrapper'ları yok.
+---
 
-## 📁 Proje Yapısı
-- `/core`: Sistemin beyni.
-    - `dispatcher.py`: İstekleri kayıtlı model wrapper'larına gönderir (tekli veya paralel).
-    - `router.py`: Bir istek için en uygun modeli seçer (karmaşıklık + maliyet + kota).
-    - `quota_manager.py`: Model başına kullanım limitlerini `data/quotas.json`'da tutar.
-    - `planner.py`: Karmaşık bir isteği daha küçük alt görevlere böler.
-    - `parallel_executor.py`: Alt görevleri `asyncio.gather` ile eşzamanlı çalıştırır.
-- `/ui`
-    - `server.py`: FastAPI arka ucu (`/health`, `/status`, `/query`).
-    - `app.py`: Streamlit kontrol paneli.
-- `/wrappers`
-    - `base_wrapper.py`: Tüm wrapper'lar için soyut temel sınıf.
-    - `ollama_wrapper.py`: Ollama HTTP API'si üzerinden yerel modeller.
-    - `hermes_wrapper.py`: Hermes ajan CLI'ı (headless, tek seferlik).
-- `/tests`: Birim testleri (ağ veya LLM gerektirmez).
-- `/data`: Kalıcı kota durumu (git tarafından yok sayılır).
+## ✨ Temel Özellikler
 
-## 🛠️ Kurulum
+1. **Akıllı Yönlendirme Motoru (`core/router.py`):**
+   - Gelen görevin zorluk derecesini (1–10) ve yetenek etiketlerini (`chat`, `code`, `search`, `reasoning`, `agentic`) analiz eder.
+   - Kotaları (`core/quota_manager.py`) ve maliyetleri gözeterek göreve en uygun çalışan modeli/ajanı otomatik seçer.
+2. **CLI Ajanları & Abonelik Orkestrasyonu (`core/cli_registry.py` & `wrappers/`):**
+   - Bilgisayarınızda kurulu olan CLI araçlarını (`Ollama`, `Hermes`, `Codex`, `Claude Code`, `OpenCode`, `Antigravity`, `Cursor`) otomatik tespit eder ve etkileşimsiz (headless) modda çalıştırır.
+3. **Paralel Görev Fabrikası (`core/planner.py` & `core/parallel_executor.py`):**
+   - Karmaşık görevleri alt görevlere (Mimari, Kodlama, Dokümantasyon) böler ve farklı modellere aynı anda (`asyncio.gather`) dağıtarak hızlandırır.
+4. **Donanım Tespiti & Cihaz Benchmark'ı (`core/hardware.py` & `core/benchmark.py`):**
+   - İşlemci çekirdeği, gerçek fiziksel RAM (Windows `GlobalMemoryStatusEx`) ve GPU VRAM (`nvidia-smi`) değerlerini okuyarak cihazınıza en uygun yerel modelleri önerir.
+5. **Model Kütüphanecisi (`core/librarian.py`) & Teknoloji Gözcüsü (`core/tech_scout.py`):**
+   - Modelleri Kodlama, Akıl Yürütme, Sohbet, Hız ve Maliyet Verimliliği kriterlerine göre puanlar; yerel Ollama modellerini (`/api/tags`) tarar ve sistem iyileştirme önerileri üretir.
 
-**Python 3.12+** gerekir (3.14 ile test edildi). Kurulu değilse:
+---
 
-```powershell
-winget install --scope user Python.Python.3.14
+## 📂 Proje Yapısı
+
+```text
+nexus_ai_studio/
+├── config/
+│   ├── providers.json          # Aktif OpenAI-uyumlu sağlayıcılar
+│   └── providers.example.json  # OpenRouter, Perplexity, HF örnek şablonu
+├── core/
+│   ├── benchmark.py            # CPU ve Disk G/Ç hız testi
+│   ├── cli_registry.py         # CLI ajan keşfi ve otomatik kayıt
+│   ├── dispatcher.py           # İstek dağıtıcı (tekli & paralel)
+│   ├── hardware.py             # RAM / GPU VRAM tespiti ve yerel model önerisi
+│   ├── librarian.py            # Faz 4: Model Kütüphanecisi & Yetenek Matrisi
+│   ├── parallel_executor.py    # Faz 3: Eşzamanlı alt görev yürütücü
+│   ├── planner.py              # Faz 3: Görev parçalayıcı (Task Decomposer)
+│   ├── provider_config.py      # JSON sağlayıcı yapılandırma yükleyici
+│   ├── quota_manager.py        # Kalıcı kota ve kullanım takibi
+│   ├── router.py               # Faz 2: Yetenek ve maliyet bazlı yönlendirici
+│   └── tech_scout.py           # Faz 5: Teknoloji Gözcüsü & sistem analizi
+├── ui/
+│   ├── server.py               # FastAPI arka uç sunucusu (:8000)
+│   └── app.py                  # Streamlit kontrol paneli (:8501)
+├── wrappers/
+│   ├── base_wrapper.py         # Soyut wrapper temel sınıfı
+│   ├── ollama_wrapper.py       # Yerel Ollama HTTP API sarmalayıcısı
+│   ├── hermes_wrapper.py       # Hermes CLI headless sarmalayıcısı
+│   ├── codex_wrapper.py        # OpenAI Codex CLI (codex exec) sarmalayıcısı
+│   ├── claude_code_wrapper.py  # Claude Code CLI (claude -p) sarmalayıcısı
+│   ├── opencode_wrapper.py     # OpenCode CLI (opencode run) sarmalayıcısı
+│   └── openai_compatible_wrapper.py # Genel OpenAI-uyumlu HTTP sarmalayıcısı
+├── tests/                      # Çevrimdışı birim testleri (51 test)
+├── setup.ps1                   # Tek komutla .venv kurulumu ve test doğrulama
+└── run.ps1                     # Tek komutla FastAPI + Streamlit başlatma
 ```
 
-Ardından sanal ortamı oluşturup bağımlılıkları kur — tek komut:
+---
 
+## 🚀 Hızlı Başlangıç
+
+### 1. Kurulum ve Test Doğrulama
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup.ps1
 ```
 
-Bu komut `.venv` oluşturur, `requirements.txt`'i kurar ve testleri çalıştırır.
-
-<details>
-<summary>Elle kurulum (eşdeğeri)</summary>
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
-</details>
-
-## ▶️ Çalıştırma
-
-Tek komut hem arka ucu hem paneli başlatır:
-
+### 2. Sunucu ve Kontrol Panelini Başlatma
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\run.ps1
 ```
+- **API Sunucusu:** `http://127.0.0.1:8000` (`/status`, `/cli/tools`, `/hardware/info`, `/hardware/recommend`, `/librarian/catalog`, `/scout/report`)
+- **Kontrol Paneli (UI):** `http://localhost:8501`
 
-Sonra http://localhost:8501 adresini aç. İkisini durdurmak için Ctrl+C.
-
-<details>
-<summary>İki servisi elle çalıştırma</summary>
-
-**Terminal 1 — arka uç**
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn ui.server:app --host 127.0.0.1 --port 8000
-```
-
-**Terminal 2 — panel**
-```powershell
-.\.venv\Scripts\python.exe -m streamlit run ui/app.py
-```
-</details>
-
-## 🔧 Yapılandırma (ortam değişkenleri)
-
-| Değişken | Varsayılan | Anlamı |
-| --- | --- | --- |
-| `OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama sunucu adresi |
-| `OLLAMA_MODEL` | `llama3` | Ollama wrapper'ının kullandığı model |
-| `OLLAMA_TIMEOUT` | `120` | İstek başına zaman aşımı (saniye) |
-| `HERMES_BIN` | otomatik bulunur | `hermes` çalıştırılabilir dosyasının yolu |
-| `HERMES_MODEL` | (Hermes varsayılanı) | Hermes için isteğe bağlı model |
-| `HERMES_TIMEOUT` | `300` | Hermes alt süreç zaman aşımı (sn) |
-| `HERMES_MAX_TURNS` | `6` | Hermes ajan tur bütçesi |
-| `HERMES_RUN_BUDGET` | `180` | Hermes toplam süre bütçesi (sn) |
-
-Ollama wrapper'ı için modelin yerelde kurulu olması gerekir:
-
-```bash
-ollama pull llama3
-```
-
-### Hermes entegrasyonu
-
-Hermes CLI'ı bulunduğunda (`HERMES_BIN`, `PATH` veya
-`%LOCALAPPDATA%\hermes\bin\hermes.exe`) otomatik kaydedilir. Her istek şunu çalıştırır:
-
-```
-hermes chat --query-file - -Q --max-turns N --run-budget S
-```
-
-İstek, stdin üzerinden verilir (`--query-file -`), böylece shell tarafından
-yorumlanmaz. `-Q` ile stdout'a yalnızca düz final yanıt gelir; `session_id`
-bilgisi stderr'e düşer. `--yolo` bilinçli olarak asla kullanılmaz; böylece
-Hermes gözetimsiz/geri dönüşsüz işlem yapmak yerine onay sorar.
-
-## 🧪 Testler
-
+### 3. Testleri Çalıştırma
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
-
-Testler çevrimdışı çalışır — LLM veya ağ erişimi gerekmez.
-
-## 📡 API
-
-| Yöntem | Yol | Açıklama |
-| --- | --- | --- |
-| GET | `/health` | Servis ayakta mı (canlılık kontrolü) |
-| GET | `/status` | Kayıtlı modeller + kota özeti |
-| POST | `/query` | `{prompt, model: "auto"\|"Ollama"\|"Hermes", parallel: bool}` |
-
-Örnek:
-
-```bash
-curl -X POST http://127.0.0.1:8000/query ^
-  -H "Content-Type: application/json" ^
-  -d "{\"prompt\": \"Merhaba de\", \"model\": \"auto\", \"parallel\": false}"
-```
-
-## 📈 Mevcut Durum
-
-- [x] **Çekirdek altyapı:** modüler wrapper sistemi + dispatcher
-- [x] **Akıllı yönlendirme:** triage + yetenek/maliyet bazlı seçim
-- [x] **Kota yönetimi:** kalıcı kullanım takibi + otomatik geri düşme
-- [x] **Panel:** çalışan Streamlit arayüzü + API köprüsü
-- [x] **Paralellik:** görev bölme + eşzamanlı çalıştırma
-- [x] **CLI ajan wrapper'ı:** Hermes (headless, tek seferlik)
-- [ ] **Bulut/CLI wrapper'ları:** Claude Code, Codex, Antigravity
-- [ ] **Cihaz benchmark'ı / model önerisi**
-- [ ] **Librarian** (model keşfi ve puanlama) ve **Tech Scout** (kendini güncelleme)
-
-> CLI ajan wrapper'ları yalnızca aracı çalıştırıp stdout'u okur — etkileşimsiz
-> modu olan her ajan (ör. `hermes chat -q "..." -Q`) takılabilir. OpenAI uyumlu
-> uç nokta sunan sağlayıcılar (`hermes proxy` gibi) ortak bir istemci
-> wrapper'ını yeniden kullanabilir.
-
-## ⏭️ Sonraki Adımlar
-
-1. Bulut sağlayıcıları ve CLI ajanları için gerçek wrapper'lar ekle.
-2. En uygun yerel modeli önermek için cihaz benchmark'ı ekle.
-3. Otomatik model keşfi ve puanlama için `Librarian` ajanını kur.
-4. Kendini güncelleme için `Tech Scout`'u uygula.

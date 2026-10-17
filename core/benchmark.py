@@ -35,6 +35,7 @@ def disk_io_score(tmpdir: str | None = None) -> int:
 
     path = os.path.join(tmpdir, f"nexus_bench_{os.getpid()}_{int(time.time()*1000)}.bin")
     data = b"x" * 64 * 1024  # 64KB
+    start = time.perf_counter()
     try:
         with open(path, "wb") as f:
             for _ in range(16):  # 1MB toplam
@@ -42,10 +43,11 @@ def disk_io_score(tmpdir: str | None = None) -> int:
             f.flush()
             os.fsync(f.fileno())
         with open(path, "rb") as f:
-            f.read()
+            _ = f.read()
+        elapsed = max(0.0001, time.perf_counter() - start)
         size_mb = 1.0
-        elapsed = 0.001  # kaba varsayım; gerçek ölçüm için daha fazla kod
-        return max(1, min(100, int(size_mb / elapsed / 10)))
+        mb_per_sec = size_mb / elapsed
+        return max(1, min(100, int(mb_per_sec / 5)))
     finally:
         try:
             os.unlink(path)
@@ -57,5 +59,5 @@ def benchmark() -> dict:
     return {
         "cpu_score": cpu_score(),
         "disk_io_score": disk_io_score(),
-        "notes": "Prototip: kısa matematik döngüsü ile kaba skor",
+        "notes": "Gerçek zamanlı CPU ve Disk G/Ç hız testi (1-100 ölçeği)",
     }

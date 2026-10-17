@@ -49,8 +49,31 @@ def _get_ram_gb() -> float:
     except Exception:
         pass
 
-    # Windows: wmic
+    # Windows: ctypes GlobalMemoryStatusEx (wmic Windows 11'de kaldırıldığı için en güvenilir yöntem)
     if platform.system() == "Windows":
+        try:
+            import ctypes
+
+            class _MEMORYSTATUSEX(ctypes.Structure):
+                _fields_ = [
+                    ("dwLength", ctypes.c_ulong),
+                    ("dwMemoryLoad", ctypes.c_ulong),
+                    ("ullTotalPhys", ctypes.c_ulonglong),
+                    ("ullAvailPhys", ctypes.c_ulonglong),
+                    ("ullTotalPageFile", ctypes.c_ulonglong),
+                    ("ullAvailPageFile", ctypes.c_ulonglong),
+                    ("ullTotalVirtual", ctypes.c_ulonglong),
+                    ("ullAvailVirtual", ctypes.c_ulonglong),
+                    ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+                ]
+
+            stat = _MEMORYSTATUSEX()
+            stat.dwLength = ctypes.sizeof(stat)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+                return round(stat.ullTotalPhys / (1024**3), 2)
+        except Exception:
+            pass
+
         try:
             result = subprocess.run(
                 ["wmic", "computersystem", "get", "TotalPhysicalMemory", "/value"],
@@ -152,6 +175,21 @@ def recommend_local_models(info: SystemInfo | None = None) -> List[ModelRecommen
         recs.append(ModelRecommendation("deepseek-coder:6.7b", "GPU ile kod yazmada iyi", "uygun"))
     if vram >= 8.0:
         recs.append(ModelRecommendation("gemma2:9b", "GPU ile dengeli, akıcı", "ideal"))
+    if vram >= 11.0 and ram >= 16.0:
+        recs.append(
+            ModelRecommendation(
+                "qwen2.5-coder:14b",
+                "12 GB+ VRAM ve 16 GB+ RAM ile üst düzey yerel kodlama modeli",
+                "ideal",
+            )
+        )
+        recs.append(
+            ModelRecommendation(
+                "deepseek-r1:14b",
+                "12 GB+ VRAM ile derin mantık yürütme (reasoning) modeli",
+                "ideal",
+            )
+        )
 
     # Tekrarsız kalsın
     seen = set()
