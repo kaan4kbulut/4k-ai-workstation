@@ -62,5 +62,28 @@ class QuotaManager:
         self._save_quotas()
         return self.quotas
 
+    def get_fill_percentage(self, model_name: str) -> float:
+        """Kullandıkça dolan yüzde (%0 -> %100)."""
+        if model_name not in self.quotas:
+            return 0.0
+        quota = self.quotas[model_name]
+        limit = quota.get("limit", 1) or 1
+        used = quota.get("used", 0)
+        return round(min(100.0, (used / limit) * 100.0), 1)
+
+    def render_quota_bar(self, model_name: str, width: int = 20) -> str:
+        """Kullandıkça dolan görsel grafik çubuğu [████░░░░] %25.0 üretir."""
+        pct = self.get_fill_percentage(model_name)
+        pct_clamped = max(0.0, min(100.0, pct))
+        filled = int(round((pct_clamped / 100.0) * width))
+        bar = "█" * filled + "░" * (width - filled)
+        return f"[{bar}] %{pct:.1f}"
+
     def get_quota_status(self) -> Dict:
+        # Mevcut kota durumuna doluluk yüzdesi ve görsel bar ekler
+        for k, v in self.quotas.items():
+            if isinstance(v, dict):
+                pct = self.get_fill_percentage(k)
+                v["fill_pct"] = pct
+                v["bar"] = self.render_quota_bar(k)
         return self.quotas
