@@ -13,15 +13,24 @@ import sys
 import tempfile
 import unittest
 
+import httpx
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.dispatcher import Dispatcher  # noqa: E402
 from core.parallel_executor import ParallelExecutor  # noqa: E402
 from core.planner import TaskPlanner  # noqa: E402
+from core.provider_config import (  # noqa: E402
+    ProviderConfig,
+    build_wrapper,
+    load_provider_configs,
+    parse_providers,
+)
 from core.quota_manager import QuotaManager  # noqa: E402
 from core.router import IntelligentRouter  # noqa: E402
 from wrappers.base_wrapper import BaseWrapper  # noqa: E402
 from wrappers.hermes_wrapper import HermesWrapper  # noqa: E402
+from wrappers.openai_compatible_wrapper import OpenAICompatibleWrapper  # noqa: E402
 
 
 class FakeWrapper(BaseWrapper):
@@ -128,6 +137,39 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(
             asyncio.run(router.select_best_model("optimize security architecture")),
             "Claude",
+        )
+
+    def test_classify_task_detects_code_and_search(self):
+        router = IntelligentRouter()
+        self.assertIn("code", asyncio.run(router.classify_task("fix this bug")))
+        self.assertIn("search", asyncio.run(router.classify_task("bugünkü güncel haberleri getir")))
+        self.assertEqual(asyncio.run(router.classify_task("merhaba")), {"chat"})
+
+    def test_strength_preference_routes_search_to_search_model(self):
+        """Arama isteği, 'search' gücü olan modele gitmeli (ucuz yerel yerine)."""
+        router = IntelligentRouter()
+        router.register_tier("Perplexity", capability_score=6, cost_per_token=0.0, strengths={"search"})
+        self.assertEqual(
+            asyncio.run(
+                router.select_best_model("bugünkü güncel haberleri getir", ["Ollama", "Perplexity"])
+            ),
+            "Perplexity",
+        )
+
+    def test_generic_chat_still_prefers_cheap_local(self):
+        router = IntelligentRouter()
+        router.register_tier("Perplexity", capability_score=6, cost_per_token=0.0, strengths={"search"})
+        self.assertEqual(
+            asyncio.run(router.select_best_model("merhaba", ["Ollama", "Perplexity"])),
+            "Ollama",
+        )
+
+    def test_registered_tier_becomes_auto_selectable(self):
+        router = IntelligentRouter()
+        router.register_tier("ChatGPT", capability_score=10, cost_per_token=0.03, strengths={"chat", "reasoning"})
+        self.assertEqual(
+            asyncio.run(router.select_best_model("optimize security architecture", ["ChatGPT"])),
+            "ChatGPT",
         )
 
 
@@ -242,6 +284,138 @@ class QuotaManagerTests(unittest.TestCase):
 
         self.assertEqual(manager.quotas["Ollama"]["used"], 4)  # sayaç korundu
         self.assertIn("Hermes", manager.quotas)  # yeni model alındı
+
+
+class OpenAICompatibleWrapperTests(unittest.TestCase):
+    """Genel HTTP wrapper'ı, sahte taşıma ile ağa çıkmadan test eder."""
+
+    def _wrapper(self, handler, api_key=None):
+        transport = httpx.MockTransport(handler)
+        return OpenAICompatibleWrapper(
+            name="TestProvider",
+            base_url="https://api.example.com/v1",
+            model="test-model",
+            api_key=api_key,
+            transport=transport,
+        )
+
+    def test_execute_parses_openai_response_and_sends_auth(self):
+        captured = {}
+
+        def handler(request):
+            captured["url"] = str(request.url)
+            captured["auth"] = request.headers.get("authorization")
+            body = json.loads(request.read().decode("utf-8"))
+            captured["model"] = body["model"]
+            captured["messages"] = body["messages"]
+            return httpx.Response(200, json={"choices": [{"message": {"content": "MERHABA"}}]})
+
+        result = asyncio.run(self._wrapper(handler, api_key="secret").execute("selam"))
+
+        self.assertEqual(result, "MERHABA")
+        self.assertTrue(captured["url"].endswith("/chat/completions"))
+        self.assertEqual(captured["auth"], "Bearer secret")
+        self.assertEqual(captured["model"], "test-model")
+        self.assertEqual(captured["messages"], [{"role": "user", "content": "selam"}])
+
+    def test_no_authorization_header_without_key(self):
+        captured = {}
+
+        def handler(request):
+            captured["auth"] = request.headers.get("authorization")
+            return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+        asyncio.run(self._wrapper(handler).execute("selam"))
+
+        self.assertIsNone(captured["auth"])
+
+    def test_missing_key_reports_turkish_error(self):
+        def handler(request):
+            return httpx.Response(401, json={"error": "unauthorized"})
+
+        result = asyncio.run(self._wrapper(handler).execute("selam"))
+
+        self.assertIn("kimlik doğrulama", result)
+
+    def test_connection_error_reports_turkish_error(self):
+        def handler(request):
+            raise httpx.ConnectError("boom")
+
+        result = asyncio.run(self._wrapper(handler).execute("selam"))
+
+        self.assertIn("ulaşılamadı", result)
+
+    def test_unexpected_shape_reports_error(self):
+        def handler(request):
+            return httpx.Response(200, json={"nope": True})
+
+        result = asyncio.run(self._wrapper(handler).execute("x"))
+
+        self.assertIn("beklenmeyen", result)
+
+
+class ProviderConfigTests(unittest.TestCase):
+    def test_parse_providers_reads_metadata_and_env_key(self):
+        os.environ["TEST_PROVIDER_KEY"] = "env-secret"
+        try:
+            configs = parse_providers(
+                {
+                    "providers": [
+                        {
+                            "name": "OpenRouter",
+                            "base_url": "https://openrouter.ai/api/v1",
+                            "model": "openai/gpt-4o-mini",
+                            "api_key_env": "TEST_PROVIDER_KEY",
+                            "capability": 9,
+                            "cost": 0.02,
+                            "strengths": ["chat", "reasoning"],
+                        }
+                    ]
+                }
+            )
+        finally:
+            del os.environ["TEST_PROVIDER_KEY"]
+
+        self.assertEqual(len(configs), 1)
+        config = configs[0]
+        self.assertEqual(config.name, "OpenRouter")
+        self.assertEqual(config.api_key, "env-secret")
+        self.assertEqual(config.capability_score, 9)
+        self.assertEqual(config.strengths, ("chat", "reasoning"))
+
+    def test_load_provider_configs_missing_file_is_empty(self):
+        self.assertEqual(load_provider_configs("does-not-exist.json"), [])
+
+    def test_load_provider_configs_reads_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "providers.json")
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "providers": [
+                            {
+                                "name": "YerelOllama",
+                                "base_url": "http://127.0.0.1:11434/v1",
+                                "model": "llama3",
+                            }
+                        ]
+                    },
+                    handle,
+                )
+
+            configs = load_provider_configs(path)
+
+            self.assertEqual(len(configs), 1)
+            self.assertEqual(configs[0].name, "YerelOllama")
+            self.assertIsNone(configs[0].api_key)  # anahtar verilmedi
+
+    def test_build_wrapper_returns_openai_wrapper(self):
+        wrapper = build_wrapper(
+            ProviderConfig(name="P", base_url="https://x/v1", model="m", api_key="k")
+        )
+        self.assertIsInstance(wrapper, OpenAICompatibleWrapper)
+        self.assertEqual(wrapper.name, "P")
+        self.assertEqual(wrapper.model_name, "m")
 
 
 if __name__ == "__main__":

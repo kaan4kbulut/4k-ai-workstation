@@ -1,0 +1,50 @@
+{
+  "_comment": "Kopyalayip 'config/providers.json' olarak kaydedin. API anahtarlarini dosyaya yazmak yerine api_key_env ile ortam degiskeni kullanin.",
+  "providers": [
+    {
+      "name": "YerelOllama",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "model": "llama3",
+      "local": true,
+      "capability": 5,
+      "cost": 0.0,
+      "strengths": ["chat", "cheap", "local"]
+    },
+    {
+      "name": "OpenRouter",
+      "base_url": "https://openrouter.ai/api/v1",
+      "model": "openai/gpt-4o-mini",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "capability": 9,
+      "cost": 0.02,
+      "strengths": ["chat", "reasoning", "breadth"]
+    },
+    {
+      "name": "HuggingFace",
+      "base_url": "https://router.huggingface.co/v1",
+      "model": "meta-llama/Llama-3.3-70B-Instruct",
+      "api_key_env": "HF_TOKEN",
+      "capability": 7,
+      "cost": 0.01,
+      "strengths": ["chat", "open"]
+    },
+    {
+      "name": "OpenAI",
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-4o-mini",
+      "api_key_env": "OPENAI_API_KEY",
+      "capability": 9,
+      "cost": 0.03,
+      "strengths": ["chat", "reasoning"]
+    },
+    {
+      "name": "Perplexity",
+      "base_url": "https://api.perplexity.ai",
+      "model": "sonar",
+      "api_key_env": "PERPLEXITY_API_KEY",
+      "capability": 7,
+      "cost": 0.02,
+      "strengths": ["search", "chat"]
+    }
+  ]
+}

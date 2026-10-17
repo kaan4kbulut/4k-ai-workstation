@@ -7,6 +7,7 @@ from core.router import IntelligentRouter
 from core.quota_manager import QuotaManager
 from core.planner import TaskPlanner
 from core.parallel_executor import ParallelExecutor
+from core.provider_config import load_provider_configs, build_wrapper
 
 app = FastAPI(title="Nexus AI Studio API")
 dispatcher = Dispatcher()
@@ -24,6 +25,22 @@ if hermes.is_available():
     dispatcher.register_wrapper("Hermes", hermes)
 else:
     print("[Başlangıç] Hermes CLI bulunamadı; 'Hermes' kaydedilmedi.")
+
+# OpenAI uyumlu sağlayıcıları yapılandırmadan yükle (config/providers.json).
+# Böylece OpenRouter, HuggingFace, Perplexity, OpenAI vb. kod yazmadan eklenir.
+try:
+    for _cfg in load_provider_configs():
+        dispatcher.register_wrapper(_cfg.name, build_wrapper(_cfg))
+        router.register_tier(
+            _cfg.name,
+            capability_score=_cfg.capability_score,
+            cost_per_token=_cfg.cost_per_token,
+            is_local=_cfg.is_local,
+            strengths=_cfg.strengths,
+        )
+        print(f"[Başlangıç] Sağlayıcı kaydedildi: {_cfg.name} ({_cfg.model})")
+except Exception as _exc:  # yapılandırma hatası sunucuyu düşürmesin
+    print(f"[Başlangıç] Sağlayıcı yapılandırması yüklenemedi: {_exc}")
 
 
 class QueryRequest(BaseModel):

@@ -7,6 +7,7 @@ venv/
 
 # Local state
 data/*.json
+config/providers.json
 
 # OS / editor
 .DS_Store
