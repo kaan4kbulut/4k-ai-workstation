@@ -51,6 +51,10 @@ from wrappers.ollama_wrapper import OllamaWrapper
 import wrappers
 
 
+from core.software_swarm import SoftwareSwarm
+from core.auto_healing import AutoHealingEngine
+
+
 class WorkstationEngine:
     """
     4K AI WORKSTATION Çekirdek Motoru.
@@ -67,6 +71,17 @@ class WorkstationEngine:
         self.tech_scout = TechScout()
         self.session_memory = SessionMemory()
         self.usage_tracker = UsageTracker()
+        self.workspace_builder = WorkspaceBuilder()
+        self.software_swarm = SoftwareSwarm(
+            router=self.router,
+            dispatcher=self.dispatcher,
+            workspace_builder=self.workspace_builder,
+        )
+        self.auto_healing = AutoHealingEngine(
+            router=self.router,
+            dispatcher=self.dispatcher,
+            workspace_builder=self.workspace_builder,
+        )
         self.registered_clis: List[str] = []
         self.loaded_providers: List[str] = []
 
@@ -220,7 +235,123 @@ async def handle_command_async(cmd_line: str, engine: Optional[WorkstationEngine
         out_lines.append(final_text)
         return "\n".join(out_lines)
 
-    # 4. BUILD <HEDEF_KLASÖR> <GÖREV>
+    # 4. OTO / OTONOM <GÖREV VEYA PROJE FİKRİ> (Sıfır Bilgiyle Uçtan Uca Otonom Fabrika)
+    if first_token in ("oto", "otonom", "auto"):
+        goal_text = raw.split(maxsplit=1)[1].strip() if len(raw.split(maxsplit=1)) > 1 else ""
+        if not goal_text:
+            return (
+                "❌ Hata: 'oto <hedef veya proje fikri>' formatında çağırmalısınız.\n"
+                "Örnek: oto Çalışanların izin talep ettiği ve yöneticinin onayladığı SQLite tabanlı web paneli yap"
+            )
+
+        # Proje adını hedeften otomatik türet
+        safe_name = re.sub(r"[^a-zA-Z0-9_]+", "_", goal_text[:30].strip()).strip("_").lower()
+        if not safe_name:
+            safe_name = "otonom_proje"
+        base_projects_dir = os.path.join(str(Path.home()), "projects")
+        os.makedirs(base_projects_dir, exist_ok=True)
+        target_dir = os.path.join(base_projects_dir, safe_name)
+        os.makedirs(target_dir, exist_ok=True)
+
+        print(f"\n🚀 [4K AI WORKSTATION - OTONOM YAZILIM FABRİKASI BAŞLATILDI]")
+        print(f"📁 Proje Hedef Klasörü: {target_dir}")
+        print("--------------------------------------------------------------------------------")
+
+        def _print_stage(stage: str, msg: str):
+            print(f"   {msg}")
+
+        # 1. Swarm ile Projeyi Üret
+        swarm_res = engine.software_swarm.run_full_pipeline(
+            user_goal=goal_text,
+            workspace_dir=target_dir,
+            model="auto",
+            progress_callback=_print_stage,
+        )
+
+        startup_cmd = swarm_res.get("startup_command", "python server.py")
+
+        # 2. Auto-Healing ile Projeyi Çalıştır ve Hataları Otomatik Onar
+        print("--------------------------------------------------------------------------------")
+        print("🧪 [Self-Healing & Doğrulama] Uygulama test ediliyor...")
+        heal_res = engine.auto_healing.execute_with_healing(
+            command=startup_cmd,
+            workspace_dir=target_dir,
+            timeout_seconds=8,
+            progress_callback=_print_stage,
+        )
+
+        out_lines = [
+            "",
+            "================================================================================",
+            "🎉 TEBRİKLER! OTONOM PROJENİZ BAŞARIYLA TAMAMLANDI VE ÇALIŞIR DURUMDA TESLİM EDİLDİ",
+            "================================================================================",
+            f"📌 Proje Başlığı   : {swarm_res['pm_spec'].get('project_title', 'Otonom Proje')}",
+            f"📁 Proje Konumu    : {target_dir}",
+            f"🛠️ Oluşturulanlar  : {len(swarm_res.get('created_files', []))} dosya diske yazıldı",
+            f"⚡ Başlatma Komutu : {startup_cmd}",
+        ]
+        if heal_res.get("healing_applied"):
+            out_lines.append(f"🔄 Kendi Kendini Onarma: {len(heal_res.get('healing_history', []))} hata arka planda otomatik düzeltildi.")
+
+        out_lines.extend([
+            "👉 Çalıştırmak İçin: 'calistir " + safe_name + "' yazabilirsiniz.",
+            "================================================================================",
+        ])
+        return "\n".join(out_lines)
+
+    # 5. PROJELER / PROJECTS
+    if lower_raw in ("projeler", "projects", "projelerim"):
+        base_projects_dir = os.path.join(str(Path.home()), "projects")
+        if not os.path.exists(base_projects_dir):
+            return f"📂 Henüz oluşturulmuş proje bulunmuyor ({base_projects_dir}).\nYeni proje üretmek için: 'oto <hedefiniz>'"
+
+        entries = [
+            d for d in os.listdir(base_projects_dir)
+            if os.path.isdir(os.path.join(base_projects_dir, d))
+        ]
+        if not entries:
+            return f"📂 Henüz oluşturulmuş proje bulunmuyor ({base_projects_dir}).\nYeni proje üretmek için: 'oto <hedefiniz>'"
+
+        lines = [
+            "================================================================================",
+            f"📂 4K AI WORKSTATION - YÖNETİLEN PROJELER ({base_projects_dir})",
+            "================================================================================",
+        ]
+        for p in entries:
+            p_path = os.path.join(base_projects_dir, p)
+            file_count = len([f for f in os.listdir(p_path) if os.path.isfile(os.path.join(p_path, f))])
+            lines.append(f"   • {p:<25} ({file_count} dosya) -> Komut: 'calistir {p}'")
+        lines.append("================================================================================")
+        return "\n".join(lines)
+
+    # 6. CALISTIR <PROJE_ADI>
+    if first_token in ("calistir", "çalıştır", "start", "run") and len(raw.split()) > 1:
+        p_name = raw.split(maxsplit=1)[1].strip().strip("\"'")
+        base_projects_dir = os.path.join(str(Path.home()), "projects")
+        p_path = os.path.join(base_projects_dir, p_name)
+        if not os.path.exists(p_path):
+            if os.path.exists(p_name):
+                p_path = p_name
+            else:
+                return f"❌ Proje bulunamadı: '{p_name}'. Mevcut projeleri görmek için 'projeler' yazın."
+
+        # Başlatılacak dosyayı bul (server.py, main.py, app.py)
+        startup_file = "server.py"
+        for candidate in ["server.py", "main.py", "app.py", "run.py"]:
+            if os.path.exists(os.path.join(p_path, candidate)):
+                startup_file = candidate
+                break
+
+        cmd = f"python {startup_file}"
+        print(f"⚡ [Auto-Healing] '{p_name}' projesi başlatılıyor ve denetleniyor...")
+        heal_res = engine.auto_healing.execute_with_healing(cmd, p_path, timeout_seconds=10)
+
+        if heal_res["success"]:
+            return f"✅ '{p_name}' projesi hatasız çalıştırıldı!\nÇıktı:\n{heal_res.get('stdout', '')}"
+        else:
+            return f"⚠️ '{p_name}' çalıştırılırken sorun çıktı:\n{heal_res.get('last_error', '')}"
+
+    # 7. BUILD <HEDEF_KLASÖR> <GÖREV>
     if first_token == "build":
         parts = raw.split(maxsplit=2)
         if len(parts) < 3:
@@ -345,19 +476,30 @@ async def handle_command_async(cmd_line: str, engine: Optional[WorkstationEngine
 ================================================================================
 💡 4K AI WORKSTATION TERMİNAL KOMUTLARI
 ================================================================================
-  • usage / kullanım          : Günlük, Haftalık, Aylık Ücretsiz (0 TL) tasarruf,
-                                model, CLI ve ajan kullanım tablolarını tek seferde basar.
-  • status / durum            : Donanım (VRAM, RAM, CPU), kurulu CLI ajanları,
-                                kayıtlı modeller ve kotaları gösterir.
+  🚀 OTONOM YAZILIM FABRİKASI & PROJE YÖNETİMİ:
+  • oto <hedefiniz>           : Sıfır teknik bilgiyle projeyi PM, Mimar, Coder ve
+                                Test ajanlarıyla otonom üretir, test eder ve linkini verir.
+                                Örn: oto Çalışan izin takip web paneli yap
+  • projeler / projects       : Bilgisayarınızdaki yönetilen tüm projeleri listeler.
+  • calistir <proje_adı>      : Belirtilen projeyi kendi kendini onararak (Self-Healing)
+                                arka planda hatasız şekilde başlatır.
   • parallel <görev>          : Görevi alt adımlara böler, eşzamanlı çalıştırır
                                 ve MoA sentezleyicisi ile birleştirip sunar.
   • build <klasör> <görev>    : İstenen projeyi/modülü eksiksiz kodlar ve belirtilen
                                 klasöre güvenle dosya olarak kaydeder.
-  • benchmark                 : CPU, Disk ve yerel Ollama model hız testi yapar.
-  • models / librarian        : Donanımınıza (12GB VRAM) en uygun modelleri puanlar.
-  • scout                     : Sistem iyileştirme ve açık kaynak önerilerini listeler.
-  • <herhangi bir soru/görev> : Otomatik Eskalasyon Zinciri ile en uygun yerel veya
-                                ücretsiz modelden başlayarak doğrudan yanıt üretir.
+
+  📊 SİSTEM, KOTA VE SAĞLAYICI DENETİMİ:
+  • usage / kullanım          : 5 Saatlik & Haftalık firma bazlı (Google, Claude,
+                                OpenAI, Yerel) doluluk ve $0.00 kota tasarruf tablosu.
+  • status / durum            : Donanım (RTX 5070 Ti VRAM, RAM), kurulu CLI ajanları
+                                ve aktif sağlayıcı durumlarını gösterir.
+  • benchmark                 : CPU, Disk ve yerel GPU LLM hız testini çalıştırır.
+  • models / librarian        : Donanımınıza (12GB VRAM) en uygun modelleri listeler.
+  • scout                     : Açık kaynak ve sistem iyileştirme raporunu gösterir.
+
+  💬 DOĞAL DİLLE SOHBET & GÖREV:
+  • <herhangi bir soru/istek> : Otomatik Bilişsel Yönlendirici en doğru modeli ($0.00)
+                                seçerek doğrudan yanıtlar ve işinizi halleder.
   • exit / çıkış              : Terminal Komut Merkezinden çıkar.
 ================================================================================
 """
