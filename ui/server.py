@@ -16,8 +16,10 @@ from core.cli_registry import discover_cli_tools, register_available_cli_wrapper
 from core.librarian import ModelLibrarian
 from core.tech_scout import TechScout
 from core.session_memory import SessionMemory
+from core.workspace_builder import WorkspaceBuilder
+from core.usage_tracker import UsageTracker
 
-app = FastAPI(title="Nexus AI Studio API")
+app = FastAPI(title="4K AI WORKSTATION API", version="2.0.0")
 quota_manager = QuotaManager()
 dispatcher = Dispatcher()
 router = IntelligentRouter(quota_manager=quota_manager)
@@ -26,6 +28,7 @@ executor = ParallelExecutor(dispatcher, router)
 librarian = ModelLibrarian()
 tech_scout = TechScout()
 session_memory = SessionMemory()
+usage_tracker = UsageTracker()
 
 # Varsayılan yerel çalışma zamanını kaydet
 dispatcher.register_wrapper("Ollama", OllamaWrapper())
@@ -98,6 +101,12 @@ class ModelPullRequest(BaseModel):
 
 class LLMBenchmarkRequest(BaseModel):
     model: str = "llama3"
+
+
+class WorkspaceBuildRequest(BaseModel):
+    prompt: str
+    workspace: str
+    model: str = "auto"
 
 
 @app.get("/health")
@@ -316,9 +325,33 @@ async def scout_report(include_online: bool = False):
         return {"status": "error", "detail": str(exc)}
 
 
+@app.get("/usage/report")
+async def get_usage_report(include_antigravity: bool = True):
+    try:
+        report = usage_tracker.get_report(include_antigravity=include_antigravity)
+        report["markdown"] = usage_tracker.format_all_in_one_markdown(
+            include_antigravity=include_antigravity
+        )
+        return report
+    except Exception as exc:
+        return {"status": "error", "detail": str(exc)}
+
+
 @app.post("/query")
 async def query_model(request: QueryRequest):
     try:
+        # Hızlı Kullanım / Tasarruf Raporu Komutu
+        if request.prompt.strip().lower() in ("usage", "kullanım", "/usage"):
+            return {
+                "type": "single",
+                "model": "UsageTracker",
+                "response": usage_tracker.format_all_in_one_markdown(include_antigravity=True),
+                "auto_routed": False,
+                "escalated": False,
+                "attempts": [],
+                "session_id": request.session_id,
+            }
+
         effective_prompt = (
             session_memory.build_contextual_prompt(request.session_id, request.prompt)
             if request.use_memory
@@ -335,13 +368,33 @@ async def query_model(request: QueryRequest):
             results = await executor.run_parallel(sub_tasks)
 
             for result in results.values():
-                quota_manager.consume_quota(result["model"])
+                m_name = result["model"]
+                quota_manager.consume_quota(m_name)
+                m_info = usage_tracker.classify_model_or_tool(m_name)
+                usage_tracker.record_event(
+                    category="model",
+                    name=m_name,
+                    tier=m_info["tier"],
+                    is_free=m_info["is_free"],
+                    source="workstation",
+                )
 
             synthesis = None
             if request.synthesize and len(sub_tasks) > 1:
                 synthesis = await executor.synthesize_results(
                     request.prompt, sub_tasks, results
                 )
+                if synthesis:
+                    s_name = synthesis["model"]
+                    quota_manager.consume_quota(s_name)
+                    s_info = usage_tracker.classify_model_or_tool(s_name)
+                    usage_tracker.record_event(
+                        category="model",
+                        name=s_name,
+                        tier=s_info["tier"],
+                        is_free=s_info["is_free"],
+                        source="workstation",
+                    )
 
             final_text = (
                 synthesis["response"]
@@ -380,6 +433,14 @@ async def query_model(request: QueryRequest):
         result_text = esc_result["response"]
 
         quota_manager.consume_quota(model_used)
+        m_info = usage_tracker.classify_model_or_tool(model_used)
+        usage_tracker.record_event(
+            category="model",
+            name=model_used,
+            tier=m_info["tier"],
+            is_free=m_info["is_free"],
+            source="workstation",
+        )
         if request.use_memory:
             session_memory.append_turn(
                 request.session_id, request.prompt, result_text, model_used
@@ -392,6 +453,54 @@ async def query_model(request: QueryRequest):
             "auto_routed": request.model == "auto",
             "escalated": esc_result["escalated"],
             "attempts": esc_result["attempts"],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/workspace/build")
+async def build_workspace(req: WorkspaceBuildRequest):
+    try:
+        project_prompt = WorkspaceBuilder.build_project_prompt(req.prompt)
+        available = list(dispatcher.wrappers.keys())
+        if req.model == "auto":
+            chain = await router.rank_escalation_chain(project_prompt, available)
+        else:
+            fallback_chain = await router.rank_escalation_chain(project_prompt, available)
+            first = (
+                req.model
+                if req.model in dispatcher.wrappers
+                else (available[0] if available else "Ollama")
+            )
+            chain = [first] + [m for m in fallback_chain if m != first]
+
+        esc_result = await dispatcher.dispatch_with_escalation(
+            chain, project_prompt, workspace=req.workspace
+        )
+        model_used = esc_result["model"]
+        response_text = esc_result["response"]
+
+        quota_manager.consume_quota(model_used)
+        m_info = usage_tracker.classify_model_or_tool(model_used)
+        usage_tracker.record_event(
+            category="model",
+            name=model_used,
+            tier=m_info["tier"],
+            is_free=m_info["is_free"],
+            source="workstation",
+        )
+
+        extracted = WorkspaceBuilder.extract_files_from_response(response_text)
+        created_files = WorkspaceBuilder.apply_files(req.workspace, extracted)
+
+        return {
+            "status": "ok",
+            "model": model_used,
+            "created_files": created_files,
+            "files_count": len(created_files),
+            "response": response_text,
+            "escalated": esc_result.get("escalated", False),
+            "attempts": esc_result.get("attempts", []),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,12 +1,12 @@
-# 🚀 Nexus AI Studio
+# 🚀 4K AI WORKSTATION
 
-**Nexus AI Studio**, yerel yapay zeka modelleri (**Ollama**), bulut API sağlayıcıları (**OpenRouter**, **HuggingFace**, **Perplexity**, **OpenAI**, **Groq**) ve işletim sisteminde kurulu abonelik tabanlı CLI ajanlarını (**Hermes**, **OpenAI Codex**, **Claude Code**, **OpenCode**, **Antigravity**) tek bir çatı altında birleştiren, kendi kendine yeten akıllı yapay zeka orkestrasyon platformudur.
+**4K AI WORKSTATION**, yerel yapay zeka modelleri (**Ollama**), bulut API sağlayıcıları (**OpenRouter**, **HuggingFace**, **Perplexity**, **OpenAI**, **Groq**) ve işletim sisteminde kurulu abonelik tabanlı CLI ajanlarını (**Hermes**, **OpenAI Codex**, **Claude Code**, **OpenCode**, **Antigravity**) tek bir çatı altında birleştiren, kendi kendine yeten akıllı yapay zeka orkestrasyon platformudur.
 
 ---
 
 ## 🌟 Tamamlanan Çekirdek Sistemler
 
-Nexus AI Studio, çoklu yapay zeka modelleri ve otonom CLI ajanları arasında kesintisiz işbirliği sağlayan 6 ana mimari sistem üzerine inşa edilmiştir:
+4K AI WORKSTATION, çoklu yapay zeka modelleri ve otonom CLI ajanları arasında kesintisiz işbirliği sağlayan 6 ana mimari sistem üzerine inşa edilmiştir:
 
 ### 1. 🧠 LLM Görev Parçalayıcı & Mixture-of-Agents (MoA) Sentezleyici
 - **Modüller:** `core/planner.py` & `core/parallel_executor.py`
@@ -41,6 +41,11 @@ Nexus AI Studio, çoklu yapay zeka modelleri ve otonom CLI ajanları arasında k
 - **Kalıcı Oturum Hafızası (`SessionMemory`):** Kullanıcı konuşmalarını oturum kimliği (`session_id`) bazında `data/sessions.json` dosyasında saklar; yeni istemlere önceki turları bağlam olarak otomatik ekler (`build_contextual_prompt`).
 - **Dinamik Sağlayıcı Yönetimi:** OpenRouter, HuggingFace, Perplexity, OpenAI, Groq gibi OpenAI-uyumlu sağlayıcıları sunucuyu yeniden başlatmadan API veya arayüz üzerinden ekleme, güncelleme ve silme imkanı sağlar (`config/providers.json`).
 - **Granüler Kota Yönetimi:** Model bazında günlük istek kotalarını belirleme, kalan kullanım haklarını izleme ve tek tıkla sayaç sıfırlama desteği sunar (`data/quotas.json`).
+
+### 7. 🏗️ Otomatik Proje/Dosya İnşa Motoru (Workspace Builder)
+- **Modül:** `core/workspace_builder.py`
+- **Otomatik Proje Üretimi (`POST /workspace/build`):** Kullanıcı istemlerini ve mimari gereksinimleri analiz ederek tam ve çalışır projeler üretir.
+- **Çoklu Dosya Ayrıştırma (`extract_files_from_response`):** `### FILE: <path>` veya JSON formatındaki LLM yanıtlarını ayrıştırır ve hedef çalışma alanına (`workspace`) güvenle yazar.
 
 ---
 
@@ -84,7 +89,7 @@ nexus_ai_studio/
 
 ## 🔌 RESTful API Uç Noktaları
 
-Nexus AI Studio arka uç sunucusu (`http://127.0.0.1:8000`) aşağıdaki kapsamlı REST API arayüzünü sunar:
+4K AI WORKSTATION arka uç sunucusu (`http://127.0.0.1:8000`) aşağıdaki kapsamlı REST API arayüzünü sunar:
 
 ### 1. Sistem ve Durum
 | Yöntem | Uç Nokta | Açıklama |
@@ -136,6 +141,11 @@ Nexus AI Studio arka uç sunucusu (`http://127.0.0.1:8000`) aşağıdaki kapsaml
 |---|---|---|---|
 | `GET` | `/librarian/catalog` | `task_type=general\|coding\|reasoning\|chat\|fast`, `only_free=bool`, `include_online=bool` | Donanım sınırlarına göre puanlanmış model kataloğunu; istenirse canlı OpenRouter ve HuggingFace modellerini döndürür. |
 | `GET` | `/scout/report` | `include_online=bool` | Donanım verimliliği, eksik araçlar ve istenirse trend GitHub AI kütüphanelerini içeren denetim raporu üretir. |
+
+### 9. Proje ve Çalışma Alanı İnşası (Workspace Builder)
+| Yöntem | Uç Nokta | Parametreler & Gövde | Açıklama |
+|---|---|---|---|
+| `POST` | `/workspace/build` | `WorkspaceBuildRequest`: `{ "prompt": str, "workspace": str, "model": "auto"|str }` | LLM çıktılarından çoklu dosya bloklarını (`### FILE: <path>` / JSON) ayrıştırıp hedef çalışma alanına (`core/workspace_builder.py` - Otomatik Proje/Dosya İnşa Motoru) güvenli ve eksiksiz şekilde otomatik yazar. |
 
 ---
 

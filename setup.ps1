@@ -1,4 +1,4 @@
-# Nexus AI Studio - environment setup
+# 4K AI WORKSTATION - environment setup
 # Creates a local virtual environment and installs dependencies.
 #
 # Usage:  powershell -ExecutionPolicy Bypass -File .\setup.ps1

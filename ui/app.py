@@ -1,12 +1,13 @@
-"""Nexus AI Studio - Kapsamlı Streamlit Kontrol Paneli (Web UI).
+"""4K AI WORKSTATION - Kapsamlı Streamlit Kontrol Paneli (Web UI).
 
-Bu modül Nexus AI Studio ekosisteminin tüm yeteneklerini tek bir merkezden yöneten
-5 sekmeli, modern ve Türkçe arayüzü sunar:
-  1. ⚡ Komut Merkezi (Oturum hafızası, eskalasyon takibi, paralel yürütme & sentezleyici)
+Bu modül 4K AI WORKSTATION ekosisteminin tüm yeteneklerini tek bir merkezden yöneten
+6 sekmeli, modern ve Türkçe arayüzü sunar:
+  1. ⚡ Komut Merkezi (Oturum hafızası, eskalasyon takibi, paralel yürütme, sentezleyici & otomatik proje inşası)
   2. 🛠️ CLI Ajanları, Sağlayıcılar & Kotalar (Abonelikler, Bulut API şablonları & Kota yönetimi)
   3. 🏎️ Donanım, Benchmark & Model İndir (Donanım önerileri, tek tıkla indirme & gerçek LLM hız testi)
   4. 📚 Model Kütüphanecisi (Librarian) (Yetenek matrisi & canlı OpenRouter/HuggingFace taraması)
   5. 🔭 Teknoloji Gözcüsü (Tech Scout) (Sistem analiz bulguları, paketler & canlı GitHub AI trendleri)
+  6. 📊 Kullanım & Tasarruf (Usage) (Günlük/Haftalık/Aylık analiz, 0 TL ücretsiz tasarruf tablosu & Antigravity orkestrasyon izleme)
 """
 
 from __future__ import annotations
@@ -20,8 +21,8 @@ import streamlit as st
 # Sayfa Yapılandırması ve Temel Ayarlar
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Nexus AI Studio",
-    page_icon="🚀",
+    page_title="4K AI WORKSTATION",
+    page_icon="🖥️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -133,10 +134,48 @@ def api_delete(endpoint: str, timeout: int = 15) -> Optional[Dict[str, Any]]:
     return None
 
 
+def get_usage_data() -> Dict[str, Any]:
+    """Kullanım raporunu önce /usage/report uç noktasından çeker, sunucu yanıt vermezse doğrudan UsageTracker motorunu çağırır."""
+    res = api_get("/usage/report", timeout=5)
+    if res and res.get("status") == "ok":
+        rep = res.get("report") if isinstance(res.get("report"), dict) else res
+        return {
+            "status": "ok",
+            "report": rep,
+            "markdown": res.get("markdown") or rep.get("markdown", ""),
+            "daily": res.get("daily") or rep.get("daily", {}),
+            "weekly": res.get("weekly") or rep.get("weekly", {}),
+            "monthly": res.get("monthly") or rep.get("monthly", {}),
+        }
+    try:
+        from core.usage_tracker import UsageTracker
+
+        tracker = UsageTracker()
+        report = tracker.get_report(include_antigravity=True)
+        md = tracker.format_all_in_one_markdown(include_antigravity=True)
+        return {
+            "status": "ok",
+            "report": report,
+            "markdown": md,
+            "daily": report.get("daily", {}),
+            "weekly": report.get("weekly", {}),
+            "monthly": report.get("monthly", {}),
+        }
+    except Exception as exc:
+        return {
+            "status": "error",
+            "detail": str(exc),
+            "daily": {},
+            "weekly": {},
+            "monthly": {},
+            "markdown": "",
+        }
+
+
 # ---------------------------------------------------------------------------
 # Kenar Çubuğu (Sidebar) - Sistem Durumu & Donanım Özeti
 # ---------------------------------------------------------------------------
-st.sidebar.title("🚀 Nexus AI Studio")
+st.sidebar.title("🖥️ 4K AI WORKSTATION")
 st.sidebar.caption("Akıllı Çoklu Ajan ve LLM Orkestrasyonu")
 
 with st.sidebar.expander("⚙️ Bağlantı Ayarları", expanded=False):
@@ -180,21 +219,40 @@ with st.sidebar.expander("💻 Donanım Özeti", expanded=True):
     else:
         st.caption("Donanım bilgisi alınamadı.")
 
+# Sidebar Usage (Tüm Kullanımları Göster) Hızlı Bilgi Alanı
+with st.sidebar.expander("📊 Usage (Tüm Kullanımları Göster)", expanded=False):
+    st.write("Model, CLI ve Antigravity alt ajanlarının kullanım ve tasarruf özeti.")
+    u_side = get_usage_data()
+    d_side = u_side.get("daily", {})
+    m_side = u_side.get("monthly", {})
+
+    st.markdown("**Günlük (Son 24s):**")
+    st.write(f"- Toplam İşlem: **{d_side.get('total_events', 0)}**")
+    st.write(f"- 🟢 Ücretsiz (0 TL): **{d_side.get('free_events', 0)}**")
+    st.write(f"- 🛡️ Korunan Kota: **%{d_side.get('free_and_worker_ratio', 0.0)}**")
+    st.write(f"- 💰 Tasarruf: **${d_side.get('estimated_saved_usd', 0.0):.2f}**")
+    st.divider()
+    st.markdown("**Aylık (Son 30g) Kümülatif:**")
+    st.write(f"- Toplam Tasarruf: **${m_side.get('estimated_saved_usd', 0.0):.2f}**")
+    st.write(f"- Toplam 0 TL & İşçi: **{m_side.get('free_events', 0) + m_side.get('low_quota_events', 0)}**")
+    st.caption("Detaylı tüm tablolar için 6. sekmeyi (📊 Kullanım & Tasarruf) inceleyin.")
+
 st.sidebar.divider()
-st.sidebar.caption("Nexus AI Studio v2.0 | Yerel & Bulut Hibrit")
+st.sidebar.caption("4K AI WORKSTATION v2.0 | Yerel & Bulut Hibrit")
 
 # ---------------------------------------------------------------------------
-# Ana Başlık ve 5 Sekmeli Arayüz
+# Ana Başlık ve 6 Sekmeli Arayüz
 # ---------------------------------------------------------------------------
-st.title("🎯 Nexus AI Studio Kontrol Paneli")
+st.title("🖥️ 4K AI WORKSTATION Kontrol Paneli")
 
-tab_cmd, tab_cli, tab_hw, tab_lib, tab_scout = st.tabs(
+tab_cmd, tab_cli, tab_hw, tab_lib, tab_scout, tab_usage = st.tabs(
     [
         "⚡ Komut Merkezi",
         "🛠️ CLI Ajanları, Sağlayıcılar & Kotalar",
         "🏎️ Donanım, Benchmark & Model İndir",
         "📚 Model Kütüphanecisi (Librarian)",
         "🔭 Teknoloji Gözcüsü (Tech Scout)",
+        "📊 Kullanım & Tasarruf (Usage)",
     ]
 )
 
@@ -207,6 +265,18 @@ with tab_cmd:
         "Doğal dildeki isteklerinizi analiz ederek en uygun yerel modele, CLI ajanına veya bulut sağlayıcıya "
         "otomatik yönlendirir; gerektiğinde karmaşık görevleri paralel alt görevlere bölüp sentezler."
     )
+
+    # Hızlı Usage Bilgi Alanı (Snapshot)
+    with st.expander("📊 Usage (Hızlı Kullanım & Tasarruf Özeti)", expanded=False):
+        u_snap = get_usage_data()
+        d_s = u_snap.get("daily", {})
+        m_s = u_snap.get("monthly", {})
+        sc1, sc2, sc3, sc4 = st.columns(4)
+        sc1.metric("Günlük Toplam İşlem", f"{d_s.get('total_events', 0)} Adet")
+        sc2.metric("🟢 Günlük 0 TL İşlem", f"{d_s.get('free_events', 0)} Adet")
+        sc3.metric("🛡️ Korunan Kota Oranı", f"%{d_s.get('free_and_worker_ratio', 0.0)}")
+        sc4.metric("💰 Aylık Tahmini Tasarruf", f"${m_s.get('estimated_saved_usd', 0.0):.2f}")
+        st.caption("Detaylı tüm modeller, CLI ve ajan analizleri için '📊 Kullanım & Tasarruf (Usage)' sekmesine bakın.")
 
     # Yapılandırma Kutusu
     with st.container():
@@ -237,8 +307,14 @@ with tab_cmd:
 
             workspace = st.text_input(
                 "Hedef Proje Dizini (Workspace - İsteğe Bağlı):",
-                placeholder="Örn: C:\\Users\\kloss\\nexus_ai_studio",
-                help="CLI kodlama ajanlarının (Claude Code, Hermes vb.) çalışacağı hedef çalışma dizini.",
+                placeholder="Örn: C:\\Users\\kloss\\4k_ai_workstation",
+                help="CLI kodlama ajanlarının (Claude Code, Hermes vb.) çalışacağı ve otomatik proje inşa edilecek hedef dizin.",
+            )
+
+            auto_build_files = st.checkbox(
+                "🏗️ Proje Dosyalarını Otomatik Oluştur (POST /workspace/build)",
+                value=False,
+                help="İşaretlendiğinde istek /workspace/build uç noktasına gönderilir. Üretilen proje dosyaları doğrudan diske yazılır ve oluşturulan dosyalar (created_files) ekranda listelenir.",
             )
 
         with col_c2:
@@ -301,7 +377,7 @@ with tab_cmd:
     # İstek Giriş Alanı
     st.markdown("##### 📝 İstek / Görev Tanımı")
     user_prompt = st.text_area(
-        "Nexus AI Studio'ya bir komut veya soru yazın:",
+        "4K AI WORKSTATION'a bir komut veya soru yazın:",
         placeholder="Örnek: Bu Python projesindeki mimariyi analiz et, birim testleri oluştur ve kod kalitesini artır...",
         height=130,
     )
@@ -309,22 +385,39 @@ with tab_cmd:
     if st.button("🚀 Çalıştır (Dispatch)", type="primary", use_container_width=True):
         if not user_prompt.strip():
             st.warning("Lütfen çalıştırmak için bir istek veya komut girin.")
+        elif auto_build_files and not workspace.strip():
+            st.warning("⚠️ 'Proje Dosyalarını Otomatik Oluştur' seçiliyken lütfen geçerli bir 'Hedef Proje Dizini (Workspace)' girin.")
         else:
-            with st.spinner("İstek analiz ediliyor ve yürütülüyor... Lütfen bekleyin."):
-                payload = {
-                    "prompt": user_prompt.strip(),
-                    "model": selected_model,
-                    "parallel": is_parallel,
-                    "synthesize": synthesize,
-                    "use_llm_planner": use_llm_planner,
-                    "session_id": active_session_id,
-                    "use_memory": use_memory,
-                    "workspace": workspace.strip() if workspace.strip() else None,
-                }
-                res = api_post("/query", json_data=payload, timeout=300)
-
-                if res:
-                    st.session_state["last_query_result"] = res
+            if auto_build_files:
+                with st.spinner("🏗️ Proje analiz ediliyor, dosyalar üretiliyor ve diske yazılıyor (POST /workspace/build)..."):
+                    payload = {
+                        "prompt": user_prompt.strip(),
+                        "workspace": workspace.strip(),
+                        "model": selected_model,
+                        "session_id": active_session_id,
+                        "use_memory": use_memory,
+                        "parallel": is_parallel,
+                        "synthesize": synthesize,
+                        "use_llm_planner": use_llm_planner,
+                    }
+                    res = api_post("/workspace/build", json_data=payload, timeout=300)
+                    if res:
+                        st.session_state["last_query_result"] = res
+            else:
+                with st.spinner("İstek analiz ediliyor ve yürütülüyor... Lütfen bekleyin."):
+                    payload = {
+                        "prompt": user_prompt.strip(),
+                        "model": selected_model,
+                        "parallel": is_parallel,
+                        "synthesize": synthesize,
+                        "use_llm_planner": use_llm_planner,
+                        "session_id": active_session_id,
+                        "use_memory": use_memory,
+                        "workspace": workspace.strip() if workspace.strip() else None,
+                    }
+                    res = api_post("/query", json_data=payload, timeout=300)
+                    if res:
+                        st.session_state["last_query_result"] = res
 
     # Sonuçların Gösterimi
     if "last_query_result" in st.session_state:
@@ -334,7 +427,23 @@ with tab_cmd:
         st.markdown("---")
         st.markdown("### 📋 Yürütme Sonuçları")
 
-        if res_type == "single":
+        # Otomatik Proje Dosyası Oluşturma (created_files) Kontrolü ve Gösterimi
+        created_files = res.get("created_files", [])
+        if created_files:
+            st.success(f"🏗️ **{len(created_files)} Adet Proje Dosyası Başarıyla Oluşturuldu ve Diske Yazıldı!**")
+            target_dir = res.get("workspace") or workspace
+            if target_dir:
+                st.caption(f"📁 **Hedef Proje Dizini:** `{target_dir}`")
+
+            with st.expander(f"📂 Oluşturulan Dosyalar Listesi ({len(created_files)})", expanded=True):
+                for fpath in created_files:
+                    st.markdown(f"- 📄 `{fpath}`")
+            st.markdown("---")
+        elif "created_files" in res and not created_files:
+            st.info("ℹ️ Proje dosyası oluşturma işlemi tamamlandı ancak oluşturulan dosya listesi boş döndü.")
+            st.markdown("---")
+
+        if res_type == "single" or (not res_type and "model" in res):
             model_used = res.get("model")
             is_escalated = res.get("escalated", False)
             attempts = res.get("attempts", [])
@@ -380,6 +489,14 @@ with tab_cmd:
                 with st.expander(f"📌 Alt Görev {task_id} — Model: {sub_res.get('model')}", expanded=False):
                     st.markdown(sub_res.get("response", ""))
 
+        else:
+            # Genel veya /workspace/build yanıt detayları
+            if res.get("response"):
+                st.markdown("#### 💬 İşlem Özeti & Model Çıktısı")
+                st.markdown(res.get("response", ""))
+            elif res.get("message"):
+                st.info(res.get("message"))
+
 
 # ===========================================================================
 # SEKME 2: 🛠️ CLI Ajanları, Sağlayıcılar & Kotalar
@@ -395,7 +512,7 @@ with tab_cli:
     with tab_c_tools:
         st.markdown("##### 🖥️ Sistemde Kurulu Otonom CLI Ajanları")
         st.write(
-            "Nexus AI Studio; sisteminizde kurulu Hermes, Claude Code, OpenCode ve Codex CLI "
+            "4K AI WORKSTATION; sisteminizde kurulu Hermes, Claude Code, OpenCode ve Codex CLI "
             "araçlarını otomatik algılayarak hiçbir API anahtarı gerekmeden doğrudan abonelik kotanızla çalıştırır."
         )
 
@@ -431,7 +548,7 @@ with tab_cli:
         st.markdown("##### 🌐 Bulut LLM Sağlayıcıları ve Özel API Yapılandırması")
         st.write(
             "OpenAI uyumlu herhangi bir bulut API uç noktasını (OpenRouter, Groq, Perplexity vb.) "
-            "Nexus yönlendiricisine ekleyin veya kaldırın."
+            "4K AI WORKSTATION yönlendiricisine ekleyin veya kaldırın."
         )
 
         # Mevcut Sağlayıcıları Listele
@@ -925,3 +1042,58 @@ with tab_scout:
                 st.info("GitHub trendleri alınamadı veya liste boş döndü.")
     else:
         st.info("Henüz Tech Scout raporu oluşturulmadı. Lütfen 'Raporu Çalıştır / Yenile' butonuna tıklayın.")
+
+
+# ===========================================================================
+# SEKME 6: 📊 Kullanım & Tasarruf (Usage)
+# ===========================================================================
+with tab_usage:
+    st.subheader("📊 Kullanım & Tasarruf Analitiği (Usage Tracker)")
+    st.write(
+        "Yerel donanımınız (Ollama), ücretsiz bulut modelleri (OpenRouter Free), "
+        "açık kaynak CLI araçları (Hermes, OpenCode) ve Antigravity alt ajanlarının oluşturduğu finansal tasarruf ve kota koruma raporu."
+    )
+
+    col_u_hdr1, col_u_hdr2 = st.columns([2, 5])
+    with col_u_hdr1:
+        if st.button("🔄 Kullanım Raporunu Yenile", key="btn_refresh_usage", type="primary"):
+            st.session_state.pop("usage_cached_data", None)
+            st.rerun()
+
+    usage_data = get_usage_data()
+    daily = usage_data.get("daily", {})
+    weekly = usage_data.get("weekly", {})
+    monthly = usage_data.get("monthly", {})
+    md_content = usage_data.get("markdown", "")
+
+    st.markdown("##### 📈 Dönemsel Özet Metrikleri (Günlük / Haftalık / Aylık)")
+    u_tab_day, u_tab_week, u_tab_month = st.tabs(
+        ["📅 Günlük (Son 24 Saat)", "🗓️ Haftalık (Son 7 Gün)", "📆 Aylık (Son 30 Gün)"]
+    )
+
+    with u_tab_day:
+        d1, d2, d3, d4 = st.columns(4)
+        d1.metric("Toplam İşlem", f"{daily.get('total_events', 0)} Adet")
+        d2.metric("🟢 Ücretsiz (0 TL) İşlem", f"{daily.get('free_events', 0)} Adet")
+        d3.metric("🛡️ Korunan Ana Kota Oranı", f"%{daily.get('free_and_worker_ratio', 0.0)}")
+        d4.metric("💰 Tahmini Tasarruf", f"${daily.get('estimated_saved_usd', 0.0):.2f}")
+
+    with u_tab_week:
+        w1, w2, w3, w4 = st.columns(4)
+        w1.metric("Toplam İşlem", f"{weekly.get('total_events', 0)} Adet")
+        w2.metric("🟢 Ücretsiz (0 TL) İşlem", f"{weekly.get('free_events', 0)} Adet")
+        w3.metric("🛡️ Korunan Ana Kota Oranı", f"%{weekly.get('free_and_worker_ratio', 0.0)}")
+        w4.metric("💰 Tahmini Tasarruf", f"${weekly.get('estimated_saved_usd', 0.0):.2f}")
+
+    with u_tab_month:
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Toplam İşlem", f"{monthly.get('total_events', 0)} Adet")
+        m2.metric("🟢 Ücretsiz (0 TL) İşlem", f"{monthly.get('free_events', 0)} Adet")
+        m3.metric("🛡️ Korunan Ana Kota Oranı", f"%{monthly.get('free_and_worker_ratio', 0.0)}")
+        m4.metric("💰 Tahmini Tasarruf", f"${monthly.get('estimated_saved_usd', 0.0):.2f}")
+
+    st.markdown("---")
+    if md_content:
+        st.markdown(md_content)
+    else:
+        st.info("Kullanım verisi henüz oluşmadı veya rapor yüklenemedi.")

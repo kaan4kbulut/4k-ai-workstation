@@ -13,7 +13,7 @@ tanımlar.
   Türkçe tutulmalı.
 - Commit mesajları Türkçe yazılır.
 
-## Proje: Nexus AI Studio
+## Proje: 4K AI WORKSTATION
 
 Birden fazla LLM sağlayıcısını (yerel + bulut + CLI ajanları) tek yerden yöneten
 orkestratör.
@@ -40,7 +40,7 @@ orkestratör.
 
 ## Antigravity ile Entegre 3 Katmanlı Orkestrasyon
 
-Nexus AI Studio, maliyet ve performans dengesini optimize etmek için Antigravity ile entegre 3 katmanlı hiyerarşik yönlendirme mimarisi uygular:
+4K AI WORKSTATION, maliyet ve performans dengesini optimize etmek için Antigravity ile entegre 3 katmanlı hiyerarşik yönlendirme mimarisi uygular:
 
 ### 1. Katman 1: Ücretsiz / Hafif Temel Katman (Triage & Rutin İşler)
 - **Bileşenler ve Modeller:**

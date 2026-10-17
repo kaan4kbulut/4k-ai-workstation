@@ -1,4 +1,4 @@
-# Nexus AI Studio - Proje İlerlemesi
+# 4K AI WORKSTATION - Proje İlerlemesi
 
 ## 📌 Mevcut Durum
 - **Durum:** Faz 1, Faz 2, Faz 3, Faz 4, Faz 5 ve Canlı Ekosistem & Otomatik Eskalasyon fazlarının tamamı başarıyla tamamlandı ve doğrulandı.
@@ -45,6 +45,11 @@
   - Oturum kimliği (`session_id`) bazında kalıcı konuşma geçmişi (`data/sessions.json`) ve yeni istemlere bağlam ekleme.
 - [x] **Arayüzden Sağlayıcı & Kota Yönetimi (`core/provider_config.py`):**
   - OpenRouter, HF, Perplexity vb. OpenAI-uyumlu sağlayıcıların ve kotaların dinamik olarak eklenmesi, düzenlenmesi ve silinmesi.
+
+### 7. Otomatik Proje & Dosya İnşa Motoru (Workspace Builder)
+- [x] **WorkspaceBuilder (`core/workspace_builder.py`):**
+  - `POST /workspace/build` (Otomatik Proje/Dosya İnşa Motoru) uç noktası ve proje üretim şablonu (`build_project_prompt`).
+  - LLM çıktısından çoklu dosya bloklarını (`### FILE: path`, `json`) ayrıştırma (`extract_files_from_response`) ve hedef çalışma alanına güvenli yazma (`write_files_to_workspace`).
 
 ---
 
