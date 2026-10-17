@@ -34,22 +34,25 @@ def render_model_quota_bar(tokens: int, limit: int, is_free: bool = False, width
     """
     Her modelin kendi kotasına veya ücretsiz modeller için referans uzman kotasına göre
     görsel grafik barı üretir.
-    Limit aşıldığında (%100+) bar tamamen dolar ve yanına 🔥 eklenir!
+    Ücretli modellerde yüzde ASLA %100'ü geçemez ve 🔥 alamaz.
+    Yalnızca ücretsiz modellerde limit aşıldığında (%100+) yanına 🔥 eklenir.
     """
     if limit <= 0:
-        pct = 0.0
+        raw_pct = 0.0
     else:
-        pct = round((tokens / limit) * 100.0, 1)
+        raw_pct = round((tokens / limit) * 100.0, 1)
 
-    pct_clamped = max(0.0, pct)
-    filled = min(width, int(round((min(100.0, pct_clamped) / 100.0) * width)))
-    bar = "█" * filled + "░" * (width - filled)
-    fire = " 🔥" if pct >= 100.0 else ""
-
-    if is_free:
+    if not is_free:
+        pct = min(100.0, max(0.0, raw_pct))
+        filled = min(width, int(round((pct / 100.0) * width)))
+        bar = "█" * filled + "░" * (width - filled)
+        return f"[{bar}] %{pct:.1f} ({format_tokens(tokens)} / {format_tokens(limit)})"
+    else:
+        pct = max(0.0, raw_pct)
+        filled = min(width, int(round((min(100.0, pct) / 100.0) * width)))
+        bar = "█" * filled + "░" * (width - filled)
+        fire = " 🔥" if pct >= 100.0 else ""
         return f"[{bar}]{fire} %{pct:.1f} ({format_tokens(tokens)} Token)"
-    else:
-        return f"[{bar}]{fire} %{pct:.1f} ({format_tokens(tokens)} / {format_tokens(limit)})"
 
 
 def normalize_agent_name(name: str) -> str:
@@ -80,27 +83,50 @@ class UsageTracker:
     görsel ve finansal tasarruf raporlarına dönüştüren analitik motoru.
     """
 
-    # 1. Sabit Standart Sırada Ücretli & Kotalı Referans Alt Modelleri
+    # 1. Sabit Standart Sırada TÜM Ücretli & Kotalı Referans Alt Modelleri (Claude + OpenAI + Google)
     PAID_REFERENCE_MODELS = [
-        {"name": "Claude Opus 5.5 (claude-opus-5.5)", "match_keys": ["opus-5.5", "opus", "claude-opus"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 Claude Opus (250K / 1.25M)"},
-        {"name": "Claude Fable 5.1 (claude-fable-5.1)", "match_keys": ["fable-5.1", "fable", "claude-fable"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Fable (400K / 2.0M)"},
-        {"name": "Claude 4.5 Sonnet (claude-code-cli)", "match_keys": ["claudecode", "claude-code", "sonnet"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Code (400K / 2.0M)"},
-        {"name": "Gemini 4 Argon (gemini-4-argon)", "match_keys": ["argon", "gemini-4-argon", "gemini-4"], "tier": "premium", "is_free": False, "limit_5h": 600_000, "limit_weekly": 3_000_000, "quota_type": "💎 Ana Orkestratör (600K / 3.0M)"},
-        {"name": "GPT-5.2 Codex (openai-codex)", "match_keys": ["codex", "gpt-5.2", "openai-codex"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ ChatGPT Codex (800K / 4.0M)"},
-        {"name": "GPT-OSS 120B (gpt-oss-120b)", "match_keys": ["gpt-oss", "oss-120b"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ GPT-OSS (1.0M / 5.0M)"},
-        {"name": "Gemini 3.8 Flash (gemini-3.8-flash)", "match_keys": ["gemini-3.8-flash", "3.8-flash", "flash-tiered", "flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ Hızlı İşçi (2.0M / 10.0M)"},
+        # --- ANTHROPIC CLAUDE TÜM MODELLER ---
+        {"name": "Claude Opus 5.5 High (claude-opus-5-5-high)", "match_keys": ["claude-opus-5-5-high", "opus-5.5-high"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 Claude Opus 5.5 High (250K / 1.25M)"},
+        {"name": "Claude Opus 5.5 Medium (claude-opus-5-5-medium)", "match_keys": ["claude-opus-5-5-medium", "opus-5.5", "claude-opus-5.5"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 Claude Opus 5.5 Med (250K / 1.25M)"},
+        {"name": "Claude Opus 5.5 Low (claude-opus-5-5-low)", "match_keys": ["claude-opus-5-5-low", "opus-5.5-low"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 Claude Opus 5.5 Low (300K / 1.5M)"},
+        {"name": "Claude Opus 4.8 / 4.6 / 4.5 (claude-opus-4)", "match_keys": ["claude-opus-4", "opus-4", "4.5-opus"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 Claude Opus 4.x (300K / 1.5M)"},
+        {"name": "Claude Sonnet 5.5 Max / High (claude-sonnet-5-5-high)", "match_keys": ["claude-sonnet-5-5-max", "claude-sonnet-5-5-high", "sonnet-5.5-high"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Sonnet 5.5 High (400K / 2.0M)"},
+        {"name": "Claude Sonnet 5.5 Medium / Low (claude-sonnet-5-5)", "match_keys": ["claude-sonnet-5-5-medium", "claude-sonnet-5-5-low", "claude-sonnet-5-5"], "tier": "premium", "is_free": False, "limit_5h": 450_000, "limit_weekly": 2_250_000, "quota_type": "💎 Claude Sonnet 5.5 Med (450K / 2.25M)"},
+        {"name": "Claude Fable 5.1 (claude-fable-5.1)", "match_keys": ["fable-5.1", "fable", "claude-fable"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Fable 5.1 (400K / 2.0M)"},
+        {"name": "Claude Sonnet 4.6 / 4.5 / CLI (claude-code-cli)", "match_keys": ["claudecode", "claude-code", "claude-sonnet-4", "claude-3.5-sonnet", "sonnet"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Sonnet 4.x / CLI (400K / 2.0M)"},
+        {"name": "Claude Haiku 4.5 / 3.5 (claude-haiku)", "match_keys": ["haiku", "claude-haiku", "claude-3-5-haiku"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ Claude Haiku (1.5M / 7.5M)"},
+        # --- OPENAI TÜM MODELLER ---
+        {"name": "OpenAI GPT-5 / GPT-4.5 (openai-gpt-5)", "match_keys": ["gpt-5 ", "gpt-4.5", "openai-gpt-5"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 OpenAI GPT-5 / 4.5 (500K / 2.5M)"},
+        {"name": "OpenAI o3 / o1 Reasoning (openai-o3)", "match_keys": ["openai-o3", "o3-high", "o1-pro", "o1-preview"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 OpenAI o3 / o1 (400K / 2.0M)"},
+        {"name": "OpenAI o3-mini / o4-mini (openai-o3-mini)", "match_keys": ["o3-mini", "o4-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "⚡ OpenAI o3-mini (1.2M / 6.0M)"},
+        {"name": "OpenAI GPT-5.2 Codex CLI (openai-codex)", "match_keys": ["codex", "gpt-5.2", "openai-codex"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ OpenAI Codex CLI (800K / 4.0M)"},
+        {"name": "OpenAI GPT-4o (openai-gpt-4o)", "match_keys": ["gpt-4o", "openai-gpt4o"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ OpenAI GPT-4o (800K / 4.0M)"},
+        {"name": "OpenAI GPT-4o-mini (openai-gpt-4o-mini)", "match_keys": ["gpt-4o-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ OpenAI GPT-4o-mini (2.0M / 10.0M)"},
+        {"name": "OpenAI GPT-OSS 120B / 20B (gpt-oss-120b)", "match_keys": ["gpt-oss", "oss-120b", "oss-20b"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ OpenAI GPT-OSS 120B (1.0M / 5.0M)"},
+        # --- GOOGLE GEMINI TÜM MODELLER ---
+        {"name": "Gemini 4 Argon High (gemini-4-argon-high)", "match_keys": ["gemini-4-argon-high", "argon-high"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 Gemini 4 Argon High (1.2M / 6.0M)"},
+        {"name": "Gemini 4 Argon Medium (gemini-4-argon-medium)", "match_keys": ["gemini-4-argon-medium", "gemini-4-argon-trial", "gemini-4-argon", "argon"], "tier": "premium", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "💎 Gemini 4 Argon Med (1.5M / 7.5M)"},
+        {"name": "Gemini 4 Argon Low (gemini-4-argon-low)", "match_keys": ["gemini-4-argon-low", "argon-low"], "tier": "premium", "is_free": False, "limit_5h": 1_800_000, "limit_weekly": 9_000_000, "quota_type": "💎 Gemini 4 Argon Low (1.8M / 9.0M)"},
+        {"name": "Gemini 3.1 Ultra (gemini-3.1-ultra)", "match_keys": ["gemini-3.1-ultra", "3.1-ultra"], "tier": "premium", "is_free": False, "limit_5h": 600_000, "limit_weekly": 3_000_000, "quota_type": "💎 Gemini 3.1 Ultra (600K / 3.0M)"},
+        {"name": "Gemini 3.1 Pro High / Low (gemini-3.1-pro)", "match_keys": ["gemini-3.1-pro", "3.1-pro", "gemini-pro"], "tier": "premium", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "💎 Gemini 3.1 Pro (1.0M / 5.0M)"},
+        {"name": "Gemini 2.5 Pro (gemini-2.5-pro)", "match_keys": ["gemini-2.5-pro", "2.5-pro"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 Gemini 2.5 Pro (1.2M / 6.0M)"},
+        {"name": "Gemini 3.8 Flash High (gemini-3.8-flash-high)", "match_keys": ["gemini-3.8-flash-high", "3.8-flash-high"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ Gemini 3.8 Flash High (2.0M / 10.0M)"},
+        {"name": "Gemini 3.8 Flash Medium / Tiered (gemini-3.8-flash)", "match_keys": ["gemini-3.8-flash-medium", "gemini-3.8-flash-tiered", "gemini-3.8-flash", "3.8-flash", "flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ Gemini 3.8 Flash Med (2.5M / 12.5M)"},
+        {"name": "Gemini 3.8 Flash Low (gemini-3.8-flash-low)", "match_keys": ["gemini-3.8-flash-low", "3.8-flash-low"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ Gemini 3.8 Flash Low (3.0M / 15.0M)"},
+        {"name": "Gemini 3.7 / 3.6 / 3.5 / 2.5 Flash (gemini-flash)", "match_keys": ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ Gemini 3.7/3.6/2.5 Flash (2.5M / 12.5M)"},
     ]
 
-    # 2. Ücretsiz & Yerel (0 TL) Modeller
+    # 2. Ücretsiz & Yerel (0 TL) Modeller (En çok kullanılandan aşağıya dinamik sıralanır, %100'ü aşabilir 🔥)
     FREE_REFERENCE_MODELS = [
-        {"name": "NVIDIA Nemotron 70B / DeepSeek R1 (NVIDIA NIM 0 TL)", "match_keys": ["nvidia", "nemotron", "nim"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / NVIDIA NIM"},
-        {"name": "HuggingFace Qwen 2.5 Coder 32B / Zephyr (HF Router 0 TL)", "match_keys": ["huggingface", "hf", "zephyr"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / HuggingFace"},
-        {"name": "Gemini 3.5 Flash-Lite (gemini-3.5-flash-lite)", "match_keys": ["3.5-flash-lite", "flash_lite", "flash-lite"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hafif İşçi"},
+        {"name": "Gemini 3.5 Flash-Lite / 3.1 Lite (gemini-3.5-flash-lite)", "match_keys": ["3.5-flash-lite", "3.1-flash-lite", "flash_lite", "flash-lite"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hafif İşçi"},
         {"name": "OpenCode Big-Pickle (opencode-free)", "match_keys": ["opencode", "big-pickle"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / OpenCode"},
-        {"name": "Hermes 3 Nous (hermes-agent)", "match_keys": ["hermes", "nous"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hermes"},
+        {"name": "Hermes 3 Nous 70B/405B (hermes-agent)", "match_keys": ["hermes", "nous"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hermes"},
         {"name": "Llama 3 8B (Yerel RTX 5070 Ti)", "match_keys": ["llama3", "llama-3", "yerelollama", "ollama"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Yerel GPU"},
         {"name": "Qwen 2.5 Coder 14B (Yerel RTX 5070 Ti)", "match_keys": ["qwen-14b", "qwen2.5-coder:14b", "qwen-coder"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Yerel GPU"},
-        {"name": "Qwen 2.5 Coder 32B:free (OpenRouter)", "match_keys": ["openrouterfree", "openrouter", ":free"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Bulut Free"},
+        {"name": "DeepSeek R1 14B (Yerel RTX 5070 Ti)", "match_keys": ["deepseek-r1:14b", "deepseek-local"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Yerel GPU"},
+        {"name": "NVIDIA Nemotron 70B / DeepSeek R1 (NVIDIA NIM 0 TL)", "match_keys": ["nvidia", "nemotron", "nim"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / NVIDIA NIM"},
+        {"name": "HuggingFace Qwen 2.5 Coder 32B / Zephyr (HF Router 0 TL)", "match_keys": ["huggingface", "hf", "zephyr"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / HuggingFace"},
+        {"name": "OpenRouter Qwen 2.5 Coder 32B:free (OpenRouter 0 TL)", "match_keys": ["openrouterfree", "openrouter", ":free"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / OpenRouter Free"},
     ]
 
     def __init__(
@@ -371,15 +397,6 @@ class UsageTracker:
                                         "source": "antigravity",
                                         "timestamp": ts,
                                     })
-                                    events.append({
-                                        "category": "model",
-                                        "name": model,
-                                        "tier": cls_info["tier"],
-                                        "is_free": cls_info["is_free"],
-                                        "tokens_est": sub_tokens,
-                                        "source": "antigravity",
-                                        "timestamp": ts,
-                                    })
 
                             # 2. Alt ajana ek görev mesajı gönderme (send_message)
                             elif tool_name == "send_message":
@@ -469,7 +486,7 @@ class UsageTracker:
 
                     if model_found:
                         cls_info = self.classify_model_or_tool(model_found)
-                        tok_est = max(len(data) // 2, 7000)
+                        tok_est = 1100  # Önbellek sonrası net adım maliyeti
                         events.append({
                             "category": "model",
                             "name": model_found,
@@ -684,35 +701,14 @@ class UsageTracker:
             name = (ev.get("name") or "").lower()
             tok = ev.get("tokens_est", 0) or 5000
 
-            # Özel eşleştirme kuralları
+            # Özel eşleştirme kuralları (Önce Flash-Lite ki 'flash' ile karışmasın)
             matched = False
-            # 1. Önce lite kontrolü
             if "lite" in name:
-                data["Gemini 3.5 Flash-Lite (gemini-3.5-flash-lite)"]["count"] += 1
-                data["Gemini 3.5 Flash-Lite (gemini-3.5-flash-lite)"]["tokens"] += tok
-                continue
-            # 2. Argon kontrolü
-            if "argon" in name:
-                data["Gemini 4 Argon (gemini-4-argon)"]["count"] += 1
-                data["Gemini 4 Argon (gemini-4-argon)"]["tokens"] += tok
-                continue
-            # 3. Opus kontrolü
-            if "opus" in name:
-                data["Claude Opus 5.5 (claude-opus-5.5)"]["count"] += 1
-                data["Claude Opus 5.5 (claude-opus-5.5)"]["tokens"] += tok
-                continue
-            # 4. Fable kontrolü
-            if "fable" in name:
-                data["Claude Fable 5.1 (claude-fable-5.1)"]["count"] += 1
-                data["Claude Fable 5.1 (claude-fable-5.1)"]["tokens"] += tok
-                continue
-            # 5. Claude kontrolü
-            if "claude" in name or "sonnet" in name:
-                data["Claude 4.5 Sonnet (claude-code-cli)"]["count"] += 1
-                data["Claude 4.5 Sonnet (claude-code-cli)"]["tokens"] += tok
+                data["Gemini 3.5 Flash-Lite / 3.1 Lite (gemini-3.5-flash-lite)"]["count"] += 1
+                data["Gemini 3.5 Flash-Lite / 3.1 Lite (gemini-3.5-flash-lite)"]["tokens"] += tok
                 continue
 
-            # Diğer standart modeller
+            # Tüm tanımlı alt modeller üzerinden sırayla eşleştir
             for spec in all_specs:
                 if any(k in name for k in spec["match_keys"]):
                     data[spec["name"]]["count"] += 1
@@ -869,18 +865,18 @@ class UsageTracker:
         bar_free_5h = render_model_quota_bar(tok_free_5h, REF_FREE_LIMIT_5H, is_free=True)
         bar_free_w = render_model_quota_bar(tok_free_w, REF_FREE_LIMIT_WEEKLY, is_free=True)
 
-        bar_low_5h = render_model_quota_bar(tok_low_5h, 2_800_000, is_free=False)
-        bar_low_w = render_model_quota_bar(tok_low_w, 14_000_000, is_free=False)
+        bar_low_5h = render_model_quota_bar(tok_low_5h, 3_300_000, is_free=False)
+        bar_low_w = render_model_quota_bar(tok_low_w, 16_500_000, is_free=False)
 
-        bar_prem_5h = render_model_quota_bar(tok_prem_5h, 600_000, is_free=False)
-        bar_prem_w = render_model_quota_bar(tok_prem_w, 3_000_000, is_free=False)
+        bar_prem_5h = render_model_quota_bar(tok_prem_5h, 1_900_000, is_free=False)
+        bar_prem_w = render_model_quota_bar(tok_prem_w, 9_500_000, is_free=False)
 
         md.append("### 🟢 1. KATMAN ÖZETİ (Ücretsiz 0 TL vs İşçi vs Uzman - Kendi Kotalarıyla)")
         md.append("| Katman | Kendi Kotası | 5 Saatlik Doluluk Grafiği | Haftalık Doluluk Grafiği |")
         md.append("| :--- | :--- | :--- | :--- |")
         md.append(f"| `🟢 Ücretsiz / Yerel (0 TL)` | 🟢 Sınırsız (Claude Ref) | `{bar_free_5h}` | `{bar_free_w}` |")
-        md.append(f"| `⚡ Düşük Kota İşçi (Flash/Codex)` | ⚡ 2.8M / 14M Token | `{bar_low_5h}` | `{bar_low_w}` |")
-        md.append(f"| `💎 Uzman Katman (Claude/Argon)` | 💎 600K / 3M Token | `{bar_prem_5h}` | `{bar_prem_w}` |")
+        md.append(f"| `⚡ Düşük Kota İşçi (Flash/Codex)` | ⚡ 3.3M / 16.5M Token | `{bar_low_5h}` | `{bar_low_w}` |")
+        md.append(f"| `💎 Uzman Katman (Claude/Argon)` | 💎 1.9M / 9.5M Token | `{bar_prem_5h}` | `{bar_prem_w}` |")
         md.append("")
         ratio_val = h5.get("free_and_worker_ratio", 0.0)
         saved_val = h5.get("estimated_saved_usd", 0.0)

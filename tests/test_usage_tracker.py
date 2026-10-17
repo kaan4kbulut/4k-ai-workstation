@@ -56,6 +56,12 @@ class TestUsageTracker(unittest.TestCase):
         self.assertIn("600.0K Token", bar_free_over)
         self.assertIn("🔥", bar_free_over)
 
+        # Ücretli model kotayı aştığında ASLA %100'ü geçemez ve ASLA 🔥 alamaz
+        bar_paid_over = render_model_quota_bar(600_000, 400_000, is_free=False, width=20)
+        self.assertIn("%100.0", bar_paid_over)
+        self.assertNotIn("%150.0", bar_paid_over)
+        self.assertNotIn("🔥", bar_paid_over)
+
     def test_classify_model_or_tool(self):
         free_models = [
             "YerelOllama",
@@ -162,6 +168,8 @@ class TestUsageTracker(unittest.TestCase):
         names = [e["name"] for e in events]
         self.assertIn("gemini-4-argon-trial", names)
         self.assertIn("gemini-3.8-flash-tiered", names)
+        self.assertEqual(events[0]["tokens_est"], 1100)
+        self.assertEqual(events[1]["tokens_est"], 1100)
 
     def test_format_all_in_one_markdown(self):
         now = datetime.now(timezone.utc).isoformat()
