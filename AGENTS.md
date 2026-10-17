@@ -37,3 +37,35 @@ orkestratör.
 - Router yalnızca **kayıtlı** wrapper'ları seçmeli (`available_names`).
 - `--yolo` benzeri gözetimsiz/geri dönüşsüz bayraklar kullanılmaz.
 - Değişiklikten sonra testler çalıştırılır ve commit edilir.
+
+## Antigravity ile Entegre 3 Katmanlı Orkestrasyon
+
+Nexus AI Studio, maliyet ve performans dengesini optimize etmek için Antigravity ile entegre 3 katmanlı hiyerarşik yönlendirme mimarisi uygular:
+
+### 1. Katman 1: Ücretsiz / Hafif Temel Katman (Triage & Rutin İşler)
+- **Bileşenler ve Modeller:**
+  - Yerel Ollama (örn. `llama3`, `deepseek-coder`)
+  - OpenRouter Free (örn. `qwen/qwen-2.5-coder-32b-instruct:free`)
+  - Flash-Lite
+- **İşlev:** Temel sohbet, hızlı ön sınıflandırma, rutin kod tamamlama, küçük refaktörler ve basit soru-cevap.
+- **Kural:** Maliyeti sıfır tutmak için tüm rutin istekler öncelikle bu katmanda karşılanır.
+
+### 2. Katman 2: Paralel Çalışma & Özel Görev Katmanı (Uzman Ajanlar)
+- **Bileşenler ve Modeller:**
+  - Paralel Flash Ajanları (Google Flash)
+  - Codex / Kod Ajanları
+  - Hermes Agent
+  - OpenCode Interpreter
+- **İşlev:** `Planner` ile alt adımlara ayrılan karmaşık görevlerin `ParallelExecutor` ile paralel işlenmesi, araç/CLI kullanımı, orta-ileri düzey kod geliştirme ve analiz.
+- **Kural:** Çok adımlı iş akışları ve alt görevler bağımsız paralel ajanlara bölünerek eşzamanlı yürütülür.
+
+### 3. Katman 3: Üst Düzey Akıl Yürütme & Otomatik Eskalasyon (Kritik & Zor Görevler)
+- **Bileşenler ve Modeller:**
+  - Claude Code
+  - Gemini Pro / GPT-4o sınıfı gelişmiş modeller
+- **İşlev:** Derin mimari kararlar, kapsamlı hata ayıklama (debugging), güvenlik denetimleri ve karmaşık sistem tasarımı.
+- **Otomatik Eskalasyon Zinciri:**
+  - Katman 1 veya Katman 2'deki modeller hata verdiğinde, zaman aşımına uğradığında veya kota tükendiğinde `dispatcher.dispatch_with_escalation` devreye girer.
+  - İstek otomatik olarak zincirdeki bir sonraki üst modele (Katman 3 / Pro) yükseltilir (failover/escalation).
+  - Kullanıcıya hangi modellerin denendiği şeffaf olarak raporlanır.
+
