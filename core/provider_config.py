@@ -98,3 +98,38 @@ def build_wrapper(config: ProviderConfig) -> OpenAICompatibleWrapper:
         api_key=config.api_key,
         timeout=config.timeout,
     )
+
+
+def upsert_provider_config(entry: dict, path: str | None = None) -> list[ProviderConfig]:
+    """Yeni bir sağlayıcıyı config/providers.json dosyasına ekler veya günceller."""
+    path = path or os.environ.get("NEXUS_PROVIDERS") or DEFAULT_CONFIG_PATH
+    data: dict = {"providers": []}
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except Exception:
+            data = {"providers": []}
+
+    providers = [p for p in data.get("providers", []) if p.get("name") != entry.get("name")]
+    providers.append(entry)
+    data["providers"] = providers
+
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(data, handle, indent=2, ensure_ascii=False)
+    return parse_providers(data)
+
+
+def delete_provider_config(name: str, path: str | None = None) -> list[ProviderConfig]:
+    """Belirtilen sağlayıcıyı config/providers.json dosyasından siler."""
+    path = path or os.environ.get("NEXUS_PROVIDERS") or DEFAULT_CONFIG_PATH
+    if not os.path.exists(path):
+        return []
+    with open(path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    data["providers"] = [p for p in data.get("providers", []) if p.get("name") != name]
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(data, handle, indent=2, ensure_ascii=False)
+    return parse_providers(data)
+

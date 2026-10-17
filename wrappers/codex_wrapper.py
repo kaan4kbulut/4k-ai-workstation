@@ -125,12 +125,14 @@ class CodexWrapper(BaseWrapper):
 
         try:
             try:
+                cwd = getattr(self, "workspace", None)
                 process = await asyncio.create_subprocess_exec(
                     *self.build_command(output_file=out_path),
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     env=env,
+                    cwd=cwd if cwd and os.path.isdir(cwd) else None,
                 )
             except OSError as exc:
                 return f"Hata: Codex başlatılamadı: {exc}"

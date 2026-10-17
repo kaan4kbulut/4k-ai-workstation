@@ -1,19 +1,23 @@
-"""Faz 4: Model Kütüphanecisi (Model Librarian) ve Yetenek Matrisi (Capability Matrix).
+"""Faz 4: Model Kütüphanecisi (Model Librarian) ve Canlı Model Keşif Motoru.
 
 Bu modül:
 1. Güncel açık kaynak (yerel Ollama), bulut ve CLI ajan modellerini
    kategorilere göre (Kodlama, Akıl Yürütme, Sohbet, Hız, Maliyet Verimliliği)
-   1-10 ölçeğinde puanlar.
+   1-10 ölçeğinde puanlar (Yetenek Matrisi / Capability Matrix).
 2. Yerel Ollama sunucusunu (`/api/tags`) sorgulayarak bilgisayarda halihazırda
-   indirili olan modelleri tespit eder ve katalogla eşleştirir.
-3. Görev tipine ve donanım sınırlarına (VRAM / RAM) göre en uygun modelleri
-   sıralar ve `data/model_catalog.json` dosyasında günceller.
+   indirili olan modelleri tespit eder.
+3. İnternet üzerinden **OpenRouter API** (`https://openrouter.ai/api/v1/models`)
+   üzerindeki güncel ücretsiz (free) bulut modellerini ve **Hugging Face API**
+   (`https://huggingface.co/api/models`) üzerindeki son 7 günün trend GGUF/yerel
+   modellerini canlı olarak tarar, puanlar ve kataloğa ekler.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
+import re
 from dataclasses import asdict, dataclass, field
 from typing import List
 
@@ -25,7 +29,7 @@ class ModelScoreCard:
     """Bir modelin yetenek matrisi ve donanım gereksinimi kartı."""
 
     id: str
-    provider: str  # "Ollama" | "CLI" | "OpenRouter" | "Cloud"
+    provider: str  # "Ollama" | "CLI" | "OpenRouter (Ücretsiz)" | "HuggingFace (Trend)"
     is_free_or_local: bool
     min_vram_gb: float
     min_ram_gb: float
@@ -42,13 +46,25 @@ class ModelScoreCard:
         """Görev tipine göre ağırlıklı toplam puan (0-10) hesaplar."""
         t = task_type.lower()
         if t in ("code", "coding", "kod", "kodlama"):
-            return round(self.coding * 0.55 + self.reasoning * 0.25 + self.speed * 0.1 + self.cost_efficiency * 0.1, 2)
+            return round(
+                self.coding * 0.55 + self.reasoning * 0.25 + self.speed * 0.1 + self.cost_efficiency * 0.1,
+                2,
+            )
         if t in ("reasoning", "architecture", "mimari", "analiz"):
-            return round(self.reasoning * 0.60 + self.coding * 0.25 + self.cost_efficiency * 0.15, 2)
+            return round(
+                self.reasoning * 0.60 + self.coding * 0.25 + self.cost_efficiency * 0.15,
+                2,
+            )
         if t in ("chat", "sohbet", "docs"):
-            return round(self.chat * 0.50 + self.speed * 0.25 + self.cost_efficiency * 0.25, 2)
+            return round(
+                self.chat * 0.50 + self.speed * 0.25 + self.cost_efficiency * 0.25,
+                2,
+            )
         if t in ("fast", "cheap", "ucuz", "hızlı"):
-            return round(self.cost_efficiency * 0.50 + self.speed * 0.35 + self.chat * 0.15, 2)
+            return round(
+                self.cost_efficiency * 0.50 + self.speed * 0.35 + self.chat * 0.15,
+                2,
+            )
         return round(
             (self.coding + self.reasoning + self.chat + self.speed + self.cost_efficiency) / 5.0,
             2,
@@ -58,6 +74,49 @@ class ModelScoreCard:
         data = asdict(self)
         data["overall_score"] = self.composite_score("general")
         return data
+
+
+def _score_discovered_model(model_id: str, description: str = "") -> tuple[int, int, int, list[str]]:
+    """Keşfedilen bir modelin adından ve açıklamasından (coding, reasoning, chat, tags) puanlarını tahmin eder."""
+    text = f"{model_id} {description}".lower()
+    coding, reasoning, chat = 7, 7, 8
+    tags = ["chat"]
+
+    if any(k in text for k in ("coder", "codestral", "starcoder", "code", "dev")):
+        coding = 9
+        reasoning = 8
+        tags.append("code")
+    if any(k in text for k in ("r1", "qwq", "thinking", "reason", "o1", "o3")):
+        reasoning = 9
+        coding = max(coding, 8)
+        tags.append("reasoning")
+    if any(k in text for k in ("70b", "72b", "671b", "405b", "32b", "27b")):
+        coding = min(10, coding + 1)
+        reasoning = min(10, reasoning + 1)
+        chat = 9
+    elif any(k in text for k in ("14b", "12b", "15b", "9b")):
+        coding = max(coding, 8)
+        reasoning = max(reasoning, 8)
+
+    return coding, reasoning, chat, sorted(set(tags))
+
+
+def _estimate_vram_from_name(model_id: str) -> tuple[float, float]:
+    """Model adındaki parametre boyutundan (ör. 7b, 14b, 32b) tahmini (VRAM, RAM) GB döndürür."""
+    lower = model_id.lower()
+    m = re.search(r"(\d+(?:\.\d+)?)b\b", lower)
+    if m:
+        params_b = float(m.group(1))
+        if params_b <= 4:
+            return 3.0, 6.0
+        if params_b <= 9:
+            return 6.5, 12.0
+        if params_b <= 16:
+            return 10.5, 16.0
+        if params_b <= 35:
+            return 20.0, 32.0
+        return 42.0, 64.0
+    return 6.0, 12.0
 
 
 DEFAULT_CATALOG: list[ModelScoreCard] = [
@@ -221,11 +280,106 @@ class ModelLibrarian:
             pass
         return []
 
+    async def fetch_openrouter_free_models(
+        self,
+        limit: int = 8,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> list[ModelScoreCard]:
+        """OpenRouter genel API'sinden güncel ücretsiz (free) bulut modellerini canlı çeker."""
+        discovered: list[ModelScoreCard] = []
+        try:
+            async with httpx.AsyncClient(timeout=6.0, transport=transport) as client:
+                res = await client.get("https://openrouter.ai/api/v1/models")
+                if res.status_code != 200:
+                    return []
+                items = res.json().get("data", [])
+                for item in items:
+                    pricing = item.get("pricing") or {}
+                    prompt_price = str(pricing.get("prompt", "1"))
+                    comp_price = str(pricing.get("completion", "1"))
+                    model_id = str(item.get("id", ""))
+                    if not model_id:
+                        continue
+                    is_free = (prompt_price in ("0", "0.0") and comp_price in ("0", "0.0")) or ":free" in model_id
+                    if not is_free:
+                        continue
+                    coding, reasoning, chat, tags = _score_discovered_model(
+                        model_id, str(item.get("description", ""))
+                    )
+                    ctx = int(item.get("context_length") or 0)
+                    discovered.append(
+                        ModelScoreCard(
+                            id=model_id,
+                            provider="OpenRouter (Ücretsiz Bulut)",
+                            is_free_or_local=True,
+                            min_vram_gb=0.0,
+                            min_ram_gb=0.0,
+                            coding=coding,
+                            reasoning=reasoning,
+                            chat=chat,
+                            speed=8,
+                            cost_efficiency=10,
+                            tags=tags + ["cheap", "cloud"],
+                            notes=f"Canlı keşfedildi • Bağlam: {ctx:,} token (Ücretsiz API)",
+                            installed_locally=False,
+                        )
+                    )
+                    if len(discovered) >= limit:
+                        break
+        except Exception:
+            pass
+        return discovered
+
+    async def fetch_huggingface_trending_models(
+        self,
+        limit: int = 6,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> list[ModelScoreCard]:
+        """Hugging Face API üzerinden son 7 günün trend GGUF yerel modellerini canlı çeker."""
+        discovered: list[ModelScoreCard] = []
+        try:
+            async with httpx.AsyncClient(timeout=6.0, transport=transport) as client:
+                res = await client.get(
+                    "https://huggingface.co/api/models",
+                    params={"filter": "gguf", "sort": "likes7d", "direction": "-1", "limit": str(limit)},
+                )
+                if res.status_code != 200:
+                    return []
+                for item in res.json():
+                    repo_id = str(item.get("id", ""))
+                    if not repo_id:
+                        continue
+                    likes = int(item.get("likes", 0))
+                    downloads = int(item.get("downloads", 0))
+                    coding, reasoning, chat, tags = _score_discovered_model(repo_id)
+                    vram, ram = _estimate_vram_from_name(repo_id)
+                    discovered.append(
+                        ModelScoreCard(
+                            id=repo_id,
+                            provider="HuggingFace (Trend GGUF)",
+                            is_free_or_local=True,
+                            min_vram_gb=vram,
+                            min_ram_gb=ram,
+                            coding=coding,
+                            reasoning=reasoning,
+                            chat=chat,
+                            speed=8,
+                            cost_efficiency=10,
+                            tags=tags + ["local", "gguf"],
+                            notes=f"HF Trend GGUF • ⭐ {likes:,} beğeni • ⬇️ {downloads:,} indirme",
+                            installed_locally=False,
+                        )
+                    )
+        except Exception:
+            pass
+        return discovered
+
     async def refresh_catalog(
         self,
         transport: httpx.AsyncBaseTransport | None = None,
+        include_online: bool = False,
     ) -> list[ModelScoreCard]:
-        """Yerel Ollama modellerini tarar, kataloğu günceller ve diske kaydeder."""
+        """Yerel Ollama modellerini ve (istenirse) canlı OpenRouter/HuggingFace modellerini tarar."""
         installed = await self.fetch_installed_ollama_models(transport=transport)
         installed_set = set(installed)
 
@@ -236,26 +390,38 @@ class ModelLibrarian:
                 or card.id.split(":")[0] in {m.split(":")[0] for m in installed_set}
             )
 
-        # Katalogda olmayan ama Ollama'da kurulu olan modelleri de ekle
         for model_name in installed:
             if model_name not in known_ids:
+                coding, reasoning, chat, tags = _score_discovered_model(model_name)
+                vram, ram = _estimate_vram_from_name(model_name)
                 self.catalog.append(
                     ModelScoreCard(
                         id=model_name,
                         provider="Ollama",
                         is_free_or_local=True,
-                        min_vram_gb=4.0,
-                        min_ram_gb=8.0,
-                        coding=7,
-                        reasoning=7,
-                        chat=8,
+                        min_vram_gb=vram,
+                        min_ram_gb=ram,
+                        coding=coding,
+                        reasoning=reasoning,
+                        chat=chat,
                         speed=8,
                         cost_efficiency=10,
-                        tags=["chat", "local", "cheap"],
+                        tags=tags + ["local", "cheap"],
                         notes="Yerel Ollama üzerinde kurulu model",
                         installed_locally=True,
                     )
                 )
+                known_ids.add(model_name)
+
+        if include_online:
+            or_models, hf_models = await asyncio.gather(
+                self.fetch_openrouter_free_models(transport=transport),
+                self.fetch_huggingface_trending_models(transport=transport),
+            )
+            for card in [*or_models, *hf_models]:
+                if card.id not in known_ids:
+                    self.catalog.append(card)
+                    known_ids.add(card.id)
 
         self.save_catalog()
         return self.catalog

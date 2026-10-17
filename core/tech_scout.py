@@ -1,17 +1,21 @@
-"""Faz 5: Teknoloji Gözcüsü (Tech Scout) ve Sistem Evrim Analizörü.
+"""Faz 5: Teknoloji Gözcüsü (Tech Scout) ve Canlı Açık Kaynak Keşif Motoru.
 
 Bu modül:
-1. Sistemin mevcut donanımını (RAM/VRAM), kurulu CLI ajanlarını ve sağlayıcı
-   yapılandırmasını denetler.
-2. Eksik bileşenleri, kullanılmayan donanım kapasitesini (ör. 12 GB VRAM olup
-   yalnızca 8B model kullanılması) ve açık kaynak AI orkestrasyon çözümlerini
-   analiz ederek somut iyileştirme önerileri üretir.
+1. Sistemin mevcut donanımını (RAM/VRAM), kurulu CLI ajanlarını, Python
+   kütüphanelerini ve sağlayıcı yapılandırmasını denetler.
+2. İnternet üzerinden **GitHub Search API** (`https://api.github.com/search/repositories`)
+   kullanarak yapay zeka orkestrasyonu, LLM yönlendirme (routing), MCP ve otonom
+   ajan ekosistemindeki güncel açık kaynak projeleri canlı olarak keşfeder.
+3. Eksik bileşenleri ve donanım optimizasyonlarını somut komutlarla raporlar.
 """
 
 from __future__ import annotations
 
+import importlib.metadata
 from dataclasses import asdict, dataclass
 from typing import List
+
+import httpx
 
 from core.cli_registry import discover_cli_tools
 from core.hardware import SystemInfo, get_system_info
@@ -21,7 +25,7 @@ from core.hardware import SystemInfo, get_system_info
 class ScoutFinding:
     """Tek bir sistem veya teknoloji iyileştirme önerisi."""
 
-    category: str  # "donanım" | "cli_ajan" | "mimari" | "açık_kaynak"
+    category: str  # "donanım" | "cli_ajan" | "mimari" | "açık_kaynak" | "paket"
     priority: str  # "yüksek" | "orta" | "bilgi"
     title: str
     recommendation: str
@@ -32,7 +36,75 @@ class ScoutFinding:
 
 
 class TechScout:
-    """Sistemin durumunu analiz edip evrim/optimizasyon önerileri üretir."""
+    """Sistemin durumunu analiz edip canlı açık kaynak ve donanım önerileri üretir."""
+
+    @staticmethod
+    def check_python_packages() -> list[dict]:
+        """Temel ve isteğe bağlı Python paketlerinin kurulum durumunu kontrol eder."""
+        packages = [
+            ("fastapi", True, "API Sunucusu"),
+            ("uvicorn", True, "ASGI Çalışma Zamanı"),
+            ("streamlit", True, "Web Kontrol Paneli"),
+            ("httpx", True, "Asenkron HTTP İstemcisi"),
+            ("pydantic", True, "Veri Doğrulama"),
+            ("psutil", False, "Gelişmiş Donanım/Bellek Telemetrisi"),
+        ]
+        result = []
+        for pkg_name, required, role in packages:
+            try:
+                ver = importlib.metadata.version(pkg_name)
+                installed = True
+            except importlib.metadata.PackageNotFoundError:
+                ver = None
+                installed = False
+            result.append(
+                {
+                    "package": pkg_name,
+                    "installed": installed,
+                    "version": ver,
+                    "required": required,
+                    "role": role,
+                }
+            )
+        return result
+
+    async def fetch_github_ai_trends(
+        self,
+        limit: int = 6,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> list[dict]:
+        """GitHub genel API'sinden güncel açık kaynak AI orkestrasyon / MCP / LLM projelerini canlı çeker."""
+        repos: list[dict] = []
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "NexusAIStudio-TechScout/1.0",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=6.0, transport=transport, headers=headers) as client:
+                res = await client.get(
+                    "https://api.github.com/search/repositories",
+                    params={
+                        "q": "topic:mcp OR topic:llm-routing OR topic:ai-agents language:Python",
+                        "sort": "stars",
+                        "order": "desc",
+                        "per_page": str(limit),
+                    },
+                )
+                if res.status_code != 200:
+                    return []
+                for item in res.json().get("items", [])[:limit]:
+                    repos.append(
+                        {
+                            "full_name": item.get("full_name", ""),
+                            "description": item.get("description") or "",
+                            "stars": int(item.get("stargazers_count", 0)),
+                            "url": item.get("html_url", ""),
+                            "topics": (item.get("topics") or [])[:5],
+                        }
+                    )
+        except Exception:
+            pass
+        return repos
 
     def analyze_system(
         self,
@@ -45,6 +117,7 @@ class TechScout:
         installed_clis = [t.name for t in cli_tools if t.installed]
         missing_clis = [t for t in cli_tools if not t.installed]
         ollama_models = installed_ollama_models or []
+        packages = self.check_python_packages()
 
         findings: list[ScoutFinding] = []
 
@@ -69,21 +142,36 @@ class TechScout:
 
         # 2) Eksik CLI abonelik ajanları
         for missing in missing_clis:
-            if missing.name == "Claude":
-                findings.append(
-                    ScoutFinding(
-                        category="cli_ajan",
-                        priority="orta",
-                        title="Claude Code CLI kurulu değil (Claude masaüstü kurulu ama CLI eksik)",
-                        recommendation=(
-                            "Claude aboneliğinizi Nexus AI Studio üzerinden otomatik tetiklemek için "
-                            "Claude Code CLI aracını kurabilirsiniz. Kurulduğunda sistem otomatik algılar."
-                        ),
-                        action_command=missing.install_hint,
-                    )
+            findings.append(
+                ScoutFinding(
+                    category="cli_ajan",
+                    priority="orta",
+                    title=f"{missing.name} CLI kurulu değil",
+                    recommendation=(
+                        f"{missing.subscription_type} aboneliğinizi Nexus AI Studio üzerinden "
+                        f"otomatik tetiklemek için {missing.name} aracını kurabilirsiniz."
+                    ),
+                    action_command=missing.install_hint,
                 )
+            )
 
-        # 3) Açık kaynak AI Orkestrasyon & Performans çözümleri
+        # 3) İsteğe bağlı telemetri paketi kontrolü
+        psutil_pkg = next((p for p in packages if p["package"] == "psutil"), None)
+        if psutil_pkg and not psutil_pkg["installed"]:
+            findings.append(
+                ScoutFinding(
+                    category="paket",
+                    priority="bilgi",
+                    title="Gelişmiş sistem telemetrisi için 'psutil' kurulabilir",
+                    recommendation=(
+                        "Anlık CPU yükü ve kullanılabilir RAM takibini hızlandırmak için "
+                        "psutil kütüphanesi sanal ortama eklenebilir."
+                    ),
+                    action_command=".\\.venv\\Scripts\\python.exe -m pip install psutil",
+                )
+            )
+
+        # 4) Açık kaynak AI Orkestrasyon & Performans çözümleri
         findings.append(
             ScoutFinding(
                 category="açık_kaynak",
@@ -101,11 +189,11 @@ class TechScout:
             ScoutFinding(
                 category="mimari",
                 priority="bilgi",
-                title="Çoklu Ajan Sentezi (Mixture-of-Agents / MoA)",
+                title="Çoklu Ajan Sentezi (Mixture-of-Agents / MoA Aktif)",
                 recommendation=(
-                    "Paralel yürütme (ParallelExecutor) çıktıları tek bir birleştirici model "
+                    "Paralel yürütme (ParallelExecutor) çıktıları artık birleştirici model "
                     "(Aggregator) tarafından sentezlenerek birden fazla CLI ajanının ortak "
-                    "nihai yanıt üretmesi sağlanır."
+                    "nihai yanıt üretmesi sağlanmaktadır."
                 ),
                 action_command=None,
             )
@@ -120,5 +208,21 @@ class TechScout:
                 "ram_gb": hw_info.ram_gb,
                 "findings_count": len(findings),
             },
+            "packages": packages,
             "findings": [f.to_dict() for f in findings],
         }
+
+    async def full_scout_report(
+        self,
+        hw_info: SystemInfo | None = None,
+        installed_ollama_models: List[str] | None = None,
+        include_online: bool = False,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> dict:
+        """Yerel sistem analizini ve (istenirse) canlı GitHub açık kaynak AI trendlerini birleştirir."""
+        report = self.analyze_system(hw_info=hw_info, installed_ollama_models=installed_ollama_models)
+        if include_online:
+            report["github_trends"] = await self.fetch_github_ai_trends(transport=transport)
+        else:
+            report["github_trends"] = []
+        return report

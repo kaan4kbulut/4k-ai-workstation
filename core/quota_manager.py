@@ -40,9 +40,27 @@ class QuotaManager:
         return quota["used"] < quota["limit"]
 
     def consume_quota(self, model_name: str):
-        if model_name in self.quotas:
-            self.quotas[model_name]["used"] += 1
-            self._save_quotas()
+        if model_name not in self.quotas:
+            self.quotas[model_name] = {"limit": 200, "used": 0, "unit": "requests"}
+        self.quotas[model_name]["used"] += 1
+        self._save_quotas()
+
+    def set_quota_limit(self, model_name: str, limit: int) -> Dict:
+        if model_name not in self.quotas:
+            self.quotas[model_name] = {"limit": max(0, int(limit)), "used": 0, "unit": "requests"}
+        else:
+            self.quotas[model_name]["limit"] = max(0, int(limit))
+        self._save_quotas()
+        return self.quotas
+
+    def reset_quota(self, model_name: str | None = None) -> Dict:
+        if model_name and model_name in self.quotas:
+            self.quotas[model_name]["used"] = 0
+        elif model_name is None:
+            for item in self.quotas.values():
+                item["used"] = 0
+        self._save_quotas()
+        return self.quotas
 
     def get_quota_status(self) -> Dict:
         return self.quotas

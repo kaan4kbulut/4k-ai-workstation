@@ -3,13 +3,10 @@ from dataclasses import dataclass, field
 from core.quota_manager import QuotaManager
 
 
-# İsteğin hangi yeteneği gerektirdiğini kabaca tahmin etmek için anahtar
-# kelimeler. Prototip düzeyinde sezgiseldir; ileride bir sınıflandırıcı model
-# (Librarian) ile değiştirilebilir.
 STRENGTH_KEYWORDS: Dict[str, List[str]] = {
-    "search": ["search", "latest", "news", "current", "today", "güncel", "haber", "arama", "bugün"],
-    "reasoning": ["architecture", "optimize", "security", "design", "plan", "complex", "mimari", "güvenlik", "tasarım"],
-    "code": ["code", "bug", "fix", "function", "refactor", "implement", "compile", "kod", "hata", "fonksiyon", "derle"],
+    "search": ["search", "latest", "news", "current", "today", "güncel", "haber", "arama", "bugün", "araştır"],
+    "reasoning": ["architecture", "optimize", "security", "design", "plan", "complex", "mimari", "güvenlik", "tasarım", "analiz"],
+    "code": ["code", "bug", "fix", "function", "refactor", "implement", "compile", "kod", "hata", "fonksiyon", "derle", "düzelt"],
     "agentic": ["build", "create", "deploy", "automate", "project", "uygulama", "oluştur", "kurulum", "otomatik"],
 }
 
@@ -20,13 +17,12 @@ class ModelTier:
     capability_score: int
     cost_per_token: float
     is_local: bool
-    # Modelin güçlü olduğu işler: {"chat", "code", "search", "agentic", "cheap", ...}
     strengths: frozenset[str] = field(default_factory=frozenset)
 
 
 class IntelligentRouter:
-    def __init__(self):
-        self.quota_manager = QuotaManager()
+    def __init__(self, quota_manager: QuotaManager | None = None):
+        self.quota_manager = quota_manager or QuotaManager()
         self.tiers: Dict[str, ModelTier] = {
             "Ollama": ModelTier("Ollama", 5, 0.0, True, frozenset({"chat", "cheap", "local", "general"})),
             "Hermes": ModelTier("Hermes", 8, 0.02, False, frozenset({"code", "agentic"})),
@@ -42,12 +38,7 @@ class IntelligentRouter:
         is_local: bool = False,
         strengths: Iterable[str] = (),
     ) -> None:
-        """Yeni bir sağlayıcıyı yönlendirme tablosuna ekler.
-
-        Bir wrapper kaydedildiğinde çağrılmalıdır; aksi halde router o modeli
-        ``auto`` modunda seçemez (yalnızca açıkça ``model=<ad>`` verilirse
-        kullanılır).
-        """
+        """Yeni bir sağlayıcıyı yönlendirme tablosuna ekler."""
         self.tiers[name] = ModelTier(
             name, capability_score, cost_per_token, is_local, frozenset(strengths)
         )
@@ -55,17 +46,30 @@ class IntelligentRouter:
     async def triage_task(self, prompt: str) -> int:
         """İsteğin karmaşıklığını 1-10 arasında puanlar."""
         prompt_lower = prompt.lower()
-        if any(word in prompt_lower for word in ["architecture", "complex", "optimize", "rewrite", "security"]):
+        if any(
+            word in prompt_lower
+            for word in [
+                "architecture",
+                "complex",
+                "optimize",
+                "rewrite",
+                "security",
+                "mimari",
+                "karmaşık",
+                "güvenlik",
+                "ölçeklenebilir",
+            ]
+        ):
             return 9
-        if any(word in prompt_lower for word in ["fix", "bug", "function", "code"]):
+        if any(
+            word in prompt_lower
+            for word in ["fix", "bug", "function", "code", "kod", "fonksiyon", "hata", "düzelt", "refactor"]
+        ):
             return 6
         return 3
 
     async def classify_task(self, prompt: str) -> set[str]:
-        """İsteğin gerektirdiği yetenek etiketlerini tahmin eder (ör. {"code"}).
-
-        Hiçbiri eşleşmezse genel sohbet kabul edilir: ``{"chat"}``.
-        """
+        """İsteğin gerektirdiği yetenek etiketlerini tahmin eder (ör. {"code"})."""
         prompt_lower = prompt.lower()
         tags = {
             tag
@@ -74,49 +78,49 @@ class IntelligentRouter:
         }
         return tags or {"chat"}
 
-    async def select_best_model(
+    async def rank_escalation_chain(
         self, prompt: str, available_names: Iterable[str] | None = None
-    ) -> str:
-        """Göreve uygun, yeterince yetenekli ve kotası kalan en ucuz modeli seçer.
-
-        `available_names`, seçimi gerçekten kayıtlı wrapper'ı olan modellerle
-        sınırlar. Bu verilmezse router, hiçbir wrapper'ın uygulamadığı bir modeli
-        seçebilir ve istek dağıtım aşamasında başarısız olur.
-
-        Seçim sırası:
-        1. Karmaşıklığı karşılayan + kotası olan + bağlı olan modeller süzülür.
-        2. Görev etiketiyle (code/search/...) örtüşen **güçlere** sahip modeller
-           öne alınır (ör. kod işi → Claude Code/Hermes).
-        3. Kalanlar arasında en ucuz, eşitlikte en yetenekli olan seçilir.
-        """
+    ) -> List[str]:
+        """Görev için en uygun ilk modelden başlayarak hata durumunda yükseltilecek (escalation) model zincirini döndürür."""
         complexity = await self.triage_task(prompt)
         task_tags = await self.classify_task(prompt)
-
         allowed = set(self.tiers) if available_names is None else set(available_names)
 
-        # Karmaşıklığı karşılayan VE kotası olan VE bağlı olan modelleri süz
         eligible_models = [
-            name for name, tier in self.tiers.items()
+            name
+            for name, tier in self.tiers.items()
             if name in allowed
             and tier.capability_score >= complexity
             and self.quota_manager.has_quota(name)
         ]
 
-        if not eligible_models:
-            # Geri düşme: karmaşıklığa bakmadan kotası olan herhangi bir model
-            available_models = [
-                name for name in self.tiers
-                if name in allowed and self.quota_manager.has_quota(name)
-            ]
-            if available_models:
-                return sorted(available_models, key=lambda x: -self.tiers[x].capability_score)[0]
-            return "Ollama"  # Mutlak geri düşme
-
-        # Görev etiketiyle örtüşen güçlere sahip modelleri öne al
         preferred = [name for name in eligible_models if self.tiers[name].strengths & task_tags]
-        candidates = preferred or eligible_models
+        primary_pool = preferred or eligible_models
 
-        return sorted(
-            candidates,
+        ordered_primary = sorted(
+            primary_pool,
             key=lambda x: (self.tiers[x].cost_per_token, -self.tiers[x].capability_score),
-        )[0]
+        )
+
+        # Eskalasyon yedeği olarak diğer tüm kotası uygun bağlı modelleri yetenek sırasıyla ekle
+        remaining = [
+            name
+            for name in self.tiers
+            if name in allowed
+            and name not in ordered_primary
+            and self.quota_manager.has_quota(name)
+        ]
+        ordered_remaining = sorted(
+            remaining,
+            key=lambda x: (-self.tiers[x].capability_score, self.tiers[x].cost_per_token),
+        )
+
+        chain = ordered_primary + ordered_remaining
+        return chain if chain else ["Ollama"]
+
+    async def select_best_model(
+        self, prompt: str, available_names: Iterable[str] | None = None
+    ) -> str:
+        """Göreve uygun, yeterince yetenekli ve kotası kalan en ucuz modeli seçer."""
+        chain = await self.rank_escalation_chain(prompt, available_names)
+        return chain[0]

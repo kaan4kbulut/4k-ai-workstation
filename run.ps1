@@ -23,7 +23,7 @@ $backend = Start-Process -FilePath $venvPython `
 try {
     Start-Sleep -Seconds 3
     Write-Host "Panel baslatiliyor: http://localhost:8501" -ForegroundColor Cyan
-    & $venvPython -m streamlit run ui/app.py --server.port 8501
+    & $venvPython -m streamlit run ui/app.py --server.port 8501 --server.headless true --browser.gatherUsageStats false
 }
 finally {
     if ($backend -and -not $backend.HasExited) {
