@@ -26,6 +26,41 @@ import httpx
 from .base_wrapper import BaseWrapper
 
 
+def is_zero_cost_allowed(
+    base_url: str,
+    model: str,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> bool:
+    """
+    Sıfır API Harcaması Kalkanı ($0.00 Kuralı):
+    Yalnızca yerel adresler (127.0.0.1, localhost, ::1, 0.0.0.0)
+    VEYA model adında ':free' içeren (OpenRouter 0 TL ücretsiz modeller) izinlidir.
+    Diğer tüm ücretli / bulut API çağrıları kesinlikle engellenir.
+    (Birim testlerinde kullanılan çevrimdışı MockTransport istisnadır).
+    """
+    if transport is not None:
+        return True
+
+    b = (base_url or "").lower().strip()
+    m = (model or "").lower().strip()
+
+    # 1. Yerel bağlantılar (Ollama vb.)
+    is_local = (
+        "127.0.0.1" in b
+        or "localhost" in b
+        or "::1" in b
+        or "0.0.0.0" in b
+    )
+    if is_local:
+        return True
+
+    # 2. Ücretsiz OpenRouter vb. modeller (:free)
+    if ":free" in m:
+        return True
+
+    return False
+
+
 class OpenAICompatibleWrapper(BaseWrapper):
     """OpenAI uyumlu bir uç noktayı tek biçimde çağıran wrapper."""
 
@@ -53,6 +88,10 @@ class OpenAICompatibleWrapper(BaseWrapper):
         return headers
 
     async def execute(self, prompt: str) -> str:
+        # SIFIR HARCAMA KİLİDİ: Ağa çıkmadan önce ücretli API çağrısını engelle ($0.00 Kalkanı)
+        if not is_zero_cost_allowed(self.base_url, self.model_name, self._transport):
+            return "🔒 SIFIR HARCAMA KİLİDİ: Ücretli API çağrısı engellendi ($0.00 Kalkanı)."
+
         payload = {
             "model": self.model_name,
             "messages": [{"role": "user", "content": prompt}],

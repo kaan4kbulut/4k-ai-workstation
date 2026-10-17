@@ -364,10 +364,10 @@ class ProviderConfigTests(unittest.TestCase):
                         {
                             "name": "OpenRouter",
                             "base_url": "https://openrouter.ai/api/v1",
-                            "model": "openai/gpt-4o-mini",
+                            "model": "openai/gpt-4o-mini:free",
                             "api_key_env": "TEST_PROVIDER_KEY",
                             "capability": 9,
-                            "cost": 0.02,
+                            "cost": 0.0,
                             "strengths": ["chat", "reasoning"],
                         }
                     ]

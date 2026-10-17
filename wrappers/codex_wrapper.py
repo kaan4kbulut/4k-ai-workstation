@@ -119,6 +119,9 @@ class CodexWrapper(BaseWrapper):
 
         env = dict(os.environ)
         env.setdefault("PYTHONIOENCODING", "utf-8")
+        # SIFIR HARCAMA KİLİDİ: Ücretli API anahtarlarını CLI ortamından temizle ($0.00 Kalkanı)
+        for key in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY"):
+            env.pop(key, None)
 
         fd, out_path = tempfile.mkstemp(prefix="nexus_codex_", suffix=".txt")
         os.close(fd)

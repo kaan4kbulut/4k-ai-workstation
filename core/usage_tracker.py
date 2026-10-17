@@ -1,8 +1,8 @@
 """
 4K AI WORKSTATION - Usage & Analytics Tracker (Kullanım ve Tasarruf Takip Motoru)
 Kullanıcının 5 Saatlik (5h) ve Haftalık (7g) model, CLI ve alt ajan kullanımlarını,
-ÜCRETLİ MODELLERİN KENDİ KOTALARINA (Claude: 400K/2M, Codex: 800K/4M, Flash: 2M/10M)
-ve ücretsiz modellerin ücretli kotaya göre %100'ü aşabilen (🔥) görsel grafik çubuklarıyla takip eder.
+conversations/*.db SQLite gen_metadata verileriyle gerçek alt model bazında (Argon, Flash 3.8, Lite, Claude, Codex),
+ücretli modelleri sabit standart sırada ve ücretsiz modelleri en çok kullanılandan aşağıya doğru dinamik sıralı olarak takip eder.
 """
 
 from __future__ import annotations
@@ -10,33 +10,18 @@ from __future__ import annotations
 import json
 import os
 import re
+import sqlite3
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-# Ücretli Modellerin Kendi 5 Saatlik ve Haftalık Token Kotaları
-MODEL_TOKEN_LIMITS = {
-    # Claude Code (Dar uzman kotası)
-    "ClaudeCode": {"limit_5h": 400_000, "limit_weekly": 2_000_000, "type": "💎 Claude Uzman Kotası"},
-    "claude": {"limit_5h": 400_000, "limit_weekly": 2_000_000, "type": "💎 Claude Uzman Kotası"},
-    # Gemini Pro (Uzman kotası)
-    "pro": {"limit_5h": 600_000, "limit_weekly": 3_000_000, "type": "💎 Gemini Pro Kotası"},
-    "gemini_pro": {"limit_5h": 600_000, "limit_weekly": 3_000_000, "type": "💎 Gemini Pro Kotası"},
-    # Codex (ChatGPT Kod Kotası)
-    "Codex": {"limit_5h": 800_000, "limit_weekly": 4_000_000, "type": "⚡ ChatGPT Kod Kotası"},
-    "codex": {"limit_5h": 800_000, "limit_weekly": 4_000_000, "type": "⚡ ChatGPT Kod Kotası"},
-    # Gemini Flash (Geniş İşçi Havuzu Kotası)
-    "flash": {"limit_5h": 2_000_000, "limit_weekly": 10_000_000, "type": "⚡ Flash İşçi Kotası"},
-    "flash (İşçi Havuzu)": {"limit_5h": 2_000_000, "limit_weekly": 10_000_000, "type": "⚡ Flash İşçi Kotası"},
-}
-
-# Ücretsiz / Yerel modeller için referans ücretli uzman kotası (Claude 400K / 2M)
-REF_FREE_LIMIT_5H = 400_000       # 400K Token (5 Saatlik Claude Kotası Referansı)
-REF_FREE_LIMIT_WEEKLY = 2_000_000 # 2.00M Token (Haftalık Claude Kotası Referansı)
+# Referans Limitleri
+REF_FREE_LIMIT_5H = 400_000       # 400K Token (Claude 5s Uzman Kotası Referansı)
+REF_FREE_LIMIT_WEEKLY = 2_000_000 # 2.00M Token (Claude Haftalık Uzman Kotası Referansı)
 
 
 def format_tokens(n: int) -> str:
-    """Token sayısını okunaklı bir stringe dönüştürür (örn. 52.0K Token, 1.45M Token)."""
+    """Token sayısını okunaklı bir stringe dönüştürür (örn. 52.0K, 1.45M)."""
     val = max(0, int(n))
     if val >= 1_000_000:
         return f"{val / 1_000_000:.2f}M"
@@ -62,10 +47,8 @@ def render_model_quota_bar(tokens: int, limit: int, is_free: bool = False, width
     fire = " 🔥" if pct >= 100.0 else ""
 
     if is_free:
-        # Ücretsiz / Yerel modellerde: %150.0 (600.0K Token)
         return f"[{bar}]{fire} %{pct:.1f} ({format_tokens(tokens)} Token)"
     else:
-        # Ücretli modellerde kendi kotasıyla: %5.0 (20.0K / 400.0K)
         return f"[{bar}]{fire} %{pct:.1f} ({format_tokens(tokens)} / {format_tokens(limit)})"
 
 
@@ -97,15 +80,27 @@ class UsageTracker:
     görsel ve finansal tasarruf raporlarına dönüştüren analitik motoru.
     """
 
-    DEFAULT_REGISTERED_MODELS = [
-        {"name": "ClaudeCode", "match_keys": ["claudecode", "claude"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Uzman (400K / 2M)"},
-        {"name": "flash (İşçi Havuzu)", "match_keys": ["flash", "tier_flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ Flash İşçi (2M / 10M)"},
-        {"name": "Codex", "match_keys": ["codex"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ Codex / GPT (800K / 4M)"},
-        {"name": "OpenCode", "match_keys": ["opencode"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Claude 400K Ref)"},
-        {"name": "Hermes", "match_keys": ["hermes"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Claude 400K Ref)"},
-        {"name": "YerelOllama (llama3)", "match_keys": ["yerelollama", "ollama", "llama3"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (RTX 5070 Ti 12GB)"},
-        {"name": "flash_lite", "match_keys": ["flash_lite", "flash-lite"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Kota Dostu)"},
-        {"name": "OpenRouterFree (qwen-2.5-coder:free)", "match_keys": ["openrouterfree", "openrouter", ":free"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Bulut Ücretsiz)"},
+    # 1. Sabit Standart Sırada Ücretli & Kotalı Referans Alt Modelleri
+    PAID_REFERENCE_MODELS = [
+        {"name": "Claude Opus 5.5 (claude-opus-5.5)", "match_keys": ["opus-5.5", "opus", "claude-opus"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 Claude Opus (250K / 1.25M)"},
+        {"name": "Claude Fable 5.1 (claude-fable-5.1)", "match_keys": ["fable-5.1", "fable", "claude-fable"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Fable (400K / 2.0M)"},
+        {"name": "Claude 4.5 Sonnet (claude-code-cli)", "match_keys": ["claudecode", "claude-code", "sonnet"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Code (400K / 2.0M)"},
+        {"name": "Gemini 4 Argon (gemini-4-argon)", "match_keys": ["argon", "gemini-4-argon", "gemini-4"], "tier": "premium", "is_free": False, "limit_5h": 600_000, "limit_weekly": 3_000_000, "quota_type": "💎 Ana Orkestratör (600K / 3.0M)"},
+        {"name": "GPT-5.2 Codex (openai-codex)", "match_keys": ["codex", "gpt-5.2", "openai-codex"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ ChatGPT Codex (800K / 4.0M)"},
+        {"name": "GPT-OSS 120B (gpt-oss-120b)", "match_keys": ["gpt-oss", "oss-120b"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ GPT-OSS (1.0M / 5.0M)"},
+        {"name": "Gemini 3.8 Flash (gemini-3.8-flash)", "match_keys": ["gemini-3.8-flash", "3.8-flash", "flash-tiered", "flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ Hızlı İşçi (2.0M / 10.0M)"},
+    ]
+
+    # 2. Ücretsiz & Yerel (0 TL) Modeller
+    FREE_REFERENCE_MODELS = [
+        {"name": "NVIDIA Nemotron 70B / DeepSeek R1 (NVIDIA NIM 0 TL)", "match_keys": ["nvidia", "nemotron", "nim"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / NVIDIA NIM"},
+        {"name": "HuggingFace Qwen 2.5 Coder 32B / Zephyr (HF Router 0 TL)", "match_keys": ["huggingface", "hf", "zephyr"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / HuggingFace"},
+        {"name": "Gemini 3.5 Flash-Lite (gemini-3.5-flash-lite)", "match_keys": ["3.5-flash-lite", "flash_lite", "flash-lite"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hafif İşçi"},
+        {"name": "OpenCode Big-Pickle (opencode-free)", "match_keys": ["opencode", "big-pickle"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / OpenCode"},
+        {"name": "Hermes 3 Nous (hermes-agent)", "match_keys": ["hermes", "nous"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hermes"},
+        {"name": "Llama 3 8B (Yerel RTX 5070 Ti)", "match_keys": ["llama3", "llama-3", "yerelollama", "ollama"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Yerel GPU"},
+        {"name": "Qwen 2.5 Coder 14B (Yerel RTX 5070 Ti)", "match_keys": ["qwen-14b", "qwen2.5-coder:14b", "qwen-coder"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Yerel GPU"},
+        {"name": "Qwen 2.5 Coder 32B:free (OpenRouter)", "match_keys": ["openrouterfree", "openrouter", ":free"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Bulut Free"},
     ]
 
     def __init__(
@@ -175,12 +170,12 @@ class UsageTracker:
         n = (name or "").strip()
         n_lower = n.lower()
 
-        if any(k in n_lower for k in ["flash_lite", "flash-lite", "tier_flash_lite"]):
+        if any(k in n_lower for k in ["flash_lite", "flash-lite", "tier_flash_lite", "3.5-flash-lite"]):
             return {
                 "is_free": True,
                 "tier": "free",
                 "cli_name": "flash_lite",
-                "display_name": "Gemini Flash-Lite (0 TL / Kota Dostu)",
+                "display_name": "Gemini 3.5 Flash-Lite (0 TL / Hafif İşçi)",
             }
 
         free_keywords = [
@@ -196,6 +191,12 @@ class UsageTracker:
             "opencode",
             "unittest",
             "pytest",
+            "nvidia",
+            "nemotron",
+            "nim",
+            "huggingface",
+            "hf",
+            "zephyr",
         ]
         if any(k in n_lower for k in free_keywords):
             cli_name = "ollama"
@@ -203,6 +204,10 @@ class UsageTracker:
                 cli_name = "hermes"
             elif "opencode" in n_lower:
                 cli_name = "opencode"
+            elif "nvidia" in n_lower or "nemotron" in n_lower or "nim" in n_lower:
+                cli_name = "nvidia_nim"
+            elif "huggingface" in n_lower or "hf" in n_lower or "zephyr" in n_lower:
+                cli_name = "huggingface"
             elif ":free" in n_lower or "openrouter" in n_lower:
                 cli_name = "openrouter"
             elif "unittest" in n_lower or "pytest" in n_lower:
@@ -215,7 +220,7 @@ class UsageTracker:
                 "display_name": f"{n} (Ücretsiz / 0 TL)",
             }
 
-        low_quota_keywords = ["flash", "tier_flash", "codex"]
+        low_quota_keywords = ["flash", "tier_flash", "codex", "3.8-flash", "gpt-oss"]
         if any(k in n_lower for k in low_quota_keywords):
             cli_name = "gemini_flash"
             if "codex" in n_lower:
@@ -227,7 +232,7 @@ class UsageTracker:
                 "display_name": f"{n} (Düşük Kota İşçisi)",
             }
 
-        premium_keywords = ["claudecode", "claude", "pro", "tier_pro", "gemini-pro"]
+        premium_keywords = ["claudecode", "claude", "pro", "tier_pro", "gemini-pro", "argon", "opus", "fable", "sonnet"]
         if any(k in n_lower for k in premium_keywords):
             cli_name = "claude" if "claude" in n_lower else "gemini_pro"
             return {
@@ -253,7 +258,7 @@ class UsageTracker:
         }
 
     def scan_antigravity_brain(self) -> List[Dict[str, Any]]:
-        """Antigravity transcript dosyalarını tarar ve gerçekçi token kullanımını hesaplar."""
+        """Antigravity transcript dosyalarını tarar."""
         brain_path = Path(self.brain_dir)
         events: List[Dict[str, Any]] = []
 
@@ -420,6 +425,65 @@ class UsageTracker:
 
         return events
 
+    def scan_conversations_db(self) -> List[Dict[str, Any]]:
+        r"""
+        C:\Users\kloss\.gemini\antigravity-cli\conversations\*.db SQLite veritabanlarını tarar.
+        gen_metadata tablosundan gerçek alt model adlarını (gemini-4-argon, gemini-3.8-flash, vb.) çıkarır.
+        """
+        events: List[Dict[str, Any]] = []
+        conv_dir = Path(self.brain_dir).parent / "conversations"
+        if not conv_dir.exists():
+            return events
+
+        db_files = list(conv_dir.glob("*.db"))
+
+        for db_file in db_files:
+            try:
+                mtime_dt = datetime.fromtimestamp(os.path.getmtime(db_file), tz=timezone.utc)
+                mtime_iso = mtime_dt.isoformat()
+
+                conn = sqlite3.connect(str(db_file), timeout=2.0)
+                cur = conn.cursor()
+                cur.execute("SELECT idx, data FROM gen_metadata")
+                rows = cur.fetchall()
+                conn.close()
+
+                for row in rows:
+                    data = row[1]
+                    if not isinstance(data, (bytes, bytearray)):
+                        continue
+
+                    model_found = None
+                    matches = re.findall(rb"gemini-[a-zA-Z0-9_.-]+", data)
+                    if matches:
+                        model_found = matches[0].decode("ascii", "ignore")
+                    elif b"\x9a\x01" in data:
+                        idx = data.find(b"\x9a\x01")
+                        try:
+                            length = data[idx + 2]
+                            raw_name = data[idx + 3 : idx + 3 + length].decode("utf-8", "ignore")
+                            if raw_name.startswith("gemini-"):
+                                model_found = raw_name
+                        except Exception:
+                            pass
+
+                    if model_found:
+                        cls_info = self.classify_model_or_tool(model_found)
+                        tok_est = max(len(data) // 2, 7000)
+                        events.append({
+                            "category": "model",
+                            "name": model_found,
+                            "tier": cls_info["tier"],
+                            "is_free": cls_info["is_free"],
+                            "tokens_est": tok_est,
+                            "source": "antigravity_db",
+                            "timestamp": mtime_iso,
+                        })
+            except Exception:
+                continue
+
+        return events
+
     @staticmethod
     def _parse_timestamp(ts: Optional[str]) -> Optional[datetime]:
         """ISO tarih stringini datetime objesine dönüştürür."""
@@ -440,6 +504,9 @@ class UsageTracker:
         if include_antigravity:
             antigravity_events = self.scan_antigravity_brain()
             all_events.extend(antigravity_events)
+            # conversations/*.db SQLite veritabanını da tara
+            db_events = self.scan_conversations_db()
+            all_events.extend(db_events)
 
         now = datetime.now(timezone.utc)
 
@@ -479,7 +546,6 @@ class UsageTracker:
                 1 for e in filtered_events if e.get("tier") == "premium"
             )
 
-            # Token toplamları
             tokens_total = sum(e.get("tokens_est", 0) for e in filtered_events)
             tokens_free = sum(e.get("tokens_est", 0) for e in filtered_events if e.get("is_free") or e.get("tier") == "free")
             tokens_low = sum(e.get("tokens_est", 0) for e in filtered_events if e.get("tier") == "low_quota")
@@ -598,18 +664,19 @@ class UsageTracker:
         return report
 
     def _aggregate_model_tokens(self, raw_events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-        """Hem model hem CLI kullanım olaylarını model bazında birleştirir."""
+        """Hem model, hem CLI hem de conversations/*.db SQLite olaylarını model bazında birleştirir."""
+        all_specs = self.PAID_REFERENCE_MODELS + self.FREE_REFERENCE_MODELS
         data = {
-            reg["name"]: {
+            spec["name"]: {
                 "count": 0,
                 "tokens": 0,
-                "tier": reg["tier"],
-                "is_free": reg["is_free"],
-                "limit_5h": reg.get("limit_5h", REF_FREE_LIMIT_5H),
-                "limit_weekly": reg.get("limit_weekly", REF_FREE_LIMIT_WEEKLY),
-                "quota_type": reg.get("quota_type", ""),
+                "tier": spec["tier"],
+                "is_free": spec["is_free"],
+                "limit_5h": spec.get("limit_5h", REF_FREE_LIMIT_5H),
+                "limit_weekly": spec.get("limit_weekly", REF_FREE_LIMIT_WEEKLY),
+                "quota_type": spec.get("quota_type", ""),
             }
-            for reg in self.DEFAULT_REGISTERED_MODELS
+            for spec in all_specs
         }
 
         for ev in raw_events:
@@ -617,11 +684,39 @@ class UsageTracker:
             name = (ev.get("name") or "").lower()
             tok = ev.get("tokens_est", 0) or 5000
 
+            # Özel eşleştirme kuralları
             matched = False
-            for reg in self.DEFAULT_REGISTERED_MODELS:
-                if any(k in name for k in reg["match_keys"]):
-                    data[reg["name"]]["count"] += 1
-                    data[reg["name"]]["tokens"] += tok
+            # 1. Önce lite kontrolü
+            if "lite" in name:
+                data["Gemini 3.5 Flash-Lite (gemini-3.5-flash-lite)"]["count"] += 1
+                data["Gemini 3.5 Flash-Lite (gemini-3.5-flash-lite)"]["tokens"] += tok
+                continue
+            # 2. Argon kontrolü
+            if "argon" in name:
+                data["Gemini 4 Argon (gemini-4-argon)"]["count"] += 1
+                data["Gemini 4 Argon (gemini-4-argon)"]["tokens"] += tok
+                continue
+            # 3. Opus kontrolü
+            if "opus" in name:
+                data["Claude Opus 5.5 (claude-opus-5.5)"]["count"] += 1
+                data["Claude Opus 5.5 (claude-opus-5.5)"]["tokens"] += tok
+                continue
+            # 4. Fable kontrolü
+            if "fable" in name:
+                data["Claude Fable 5.1 (claude-fable-5.1)"]["count"] += 1
+                data["Claude Fable 5.1 (claude-fable-5.1)"]["tokens"] += tok
+                continue
+            # 5. Claude kontrolü
+            if "claude" in name or "sonnet" in name:
+                data["Claude 4.5 Sonnet (claude-code-cli)"]["count"] += 1
+                data["Claude 4.5 Sonnet (claude-code-cli)"]["tokens"] += tok
+                continue
+
+            # Diğer standart modeller
+            for spec in all_specs:
+                if any(k in name for k in spec["match_keys"]):
+                    data[spec["name"]]["count"] += 1
+                    data[spec["name"]]["tokens"] += tok
                     matched = True
                     break
 
@@ -669,14 +764,76 @@ class UsageTracker:
                 data[name]["tokens"] += tok
         return data
 
+    def audit_paid_api_risks(self, providers_path: str = "config/providers.json") -> Dict[str, Any]:
+        """
+        Sistemde ücretli API riski olup olmadığını denetler.
+        1. Ortam değişkenlerinde (OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, CLAUDE_API_KEY)
+           gerçek bir anahtar var mı bakar.
+        2. config/providers.json içinde yerel olmayan (127.0.0.1/localhost dışı) ve model adında ':free'
+           bulunmayan veya cost > 0 olan herhangi bir sağlayıcı eklenmiş mi kontrol eder.
+        """
+        warnings = []
+
+        # 1. Ortam değişkenleri denetimi
+        paid_env_keys = [
+            ("OPENAI_API_KEY", "OpenAI"),
+            ("ANTHROPIC_API_KEY", "Anthropic"),
+            ("GEMINI_API_KEY", "Google Gemini"),
+            ("CLAUDE_API_KEY", "Claude"),
+        ]
+        for env_key, provider_label in paid_env_keys:
+            val = os.environ.get(env_key, "").strip()
+            if val and not val.startswith("dummy") and not val.startswith("mock") and not val.startswith("test"):
+                warnings.append(
+                    f"🚨 UYARI: '{env_key}' ({provider_label}) ücretli API anahtarı ortamda tespit edildi ve otomatik olarak engellendi! Kaldırmak için ortam değişkenini silin."
+                )
+
+        # 2. config/providers.json denetimi
+        if os.path.exists(providers_path):
+            try:
+                with open(providers_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    providers = data.get("providers", [])
+                    for p in providers:
+                        p_name = p.get("name", "Bilinmeyen")
+                        p_model = p.get("model", "")
+                        p_url = p.get("base_url", "")
+                        p_cost = float(p.get("cost", 0.0) or 0.0)
+                        p_local = bool(p.get("local", False))
+
+                        is_local = p_local or ("127.0.0.1" in p_url) or ("localhost" in p_url)
+                        is_explicit_free = (":free" in p_model.lower()) or ("free" in p_name.lower())
+
+                        if not is_local:
+                            if p_cost > 0.0 or not is_explicit_free:
+                                warnings.append(
+                                    f"🚨 UYARI: '{p_name}' ({p_model}) ücretli API tespit edildi ve otomatik olarak engellendi! Kaldırmak için '4k remove-api {p_name}' çalıştırın."
+                                )
+            except Exception:
+                pass
+
+        if warnings:
+            return {
+                "safe": False,
+                "warnings": warnings,
+                "status_line": "🚨 **ÜCRETLİ API TEHLİKESİ TESPİT EDİLDİ (ENGELLENDİ):** " + " | ".join(warnings),
+            }
+
+        return {
+            "safe": True,
+            "warnings": [],
+            "status_line": "🔒 **SIFIR API HARCAMA KALKANI AKTİF ($0.00):** Sistemde hiçbir ücretli API anahtarı veya kontörlü bağlantı yok. Ücretli API eklenmeye çalışılırsa anında engellenir ve burada kırmızı uyarı verir.",
+        }
+
     def format_all_in_one_markdown(self, include_antigravity: bool = True) -> str:
         """
         Kullanıcı '/usage' dediğinde TEK SEFERDE:
-        - Ücretli modellerin KENDİ KOTALARINA göre (Claude: 400K, Codex: 800K, Flash: 2M)
-        - Ücretsiz modellerin Claude kotası (400K) referansıyla %100'ü aşabilen (🔥) doluluk barları
+        - Ücretli modelleri sabit standart sırada (Opus, Fable, Sonnet, Argon, Codex, GPT-OSS, Flash)
+        - Ücretsiz modelleri en çok kullanılandan aşağıya doğru dinamik sıralı (%100'ü geçebilen 🔥)
         - 5 Saatlik ve Haftalık karşılaştırmalı grafik panosu üretir.
         """
         report = self.get_report(include_antigravity=include_antigravity)
+        audit = self.audit_paid_api_risks()
 
         h5 = report.get("five_hours", {})
         if not h5.get("total_events"):
@@ -687,8 +844,15 @@ class UsageTracker:
 
         md: List[str] = []
         md.append("# 📊 /usage — 4K AI WORKSTATION & ANTIGRAVITY KULLANIM GRAFİĞİ")
-        md.append("**⏱️ 5 Saatlik & 📅 Haftalık Pencere (Ücretli Modellerin Kendi Kotaları & Ücretsiz Katman Güç Göstergesi)**")
+        md.append("**⏱️ 5 Saatlik & 📅 Haftalık Pencere (Model Model Ayrıntılı Kota & Token Doluluk Panosu)**")
         md.append(f"**🕒 Güncelleme:** `{now_str}` | **📁 Depolama:** `{self.storage_path}` | **🧠 Antigravity:** `{self.brain_dir}`")
+        md.append("")
+        if not audit["safe"]:
+            md.append("> 🚨 **DİKKAT — ÜCRETLİ API TEHLİKESİ TESPİT EDİLDİ (OTOMATİK ENGELLENDİ):**")
+            for w_msg in audit["warnings"]:
+                md.append(f"> - {w_msg}")
+        else:
+            md.append(f"> {audit['status_line']}")
         md.append("")
         md.append("---")
         md.append("")
@@ -702,25 +866,21 @@ class UsageTracker:
         tok_low_w = w.get("tokens_low_quota", 0)
         tok_prem_w = w.get("tokens_premium", 0)
 
-        # Katman Limitleri:
-        # Uzman Katman (Claude): 400K / 2M
-        # Düşük Kota (Flash + Codex): 2.8M / 14M
-        # Ücretsiz Katman: Claude 400K / 2M kotasına göre kıyaslanır ve %100'ü aşabilir!
         bar_free_5h = render_model_quota_bar(tok_free_5h, REF_FREE_LIMIT_5H, is_free=True)
         bar_free_w = render_model_quota_bar(tok_free_w, REF_FREE_LIMIT_WEEKLY, is_free=True)
 
         bar_low_5h = render_model_quota_bar(tok_low_5h, 2_800_000, is_free=False)
         bar_low_w = render_model_quota_bar(tok_low_w, 14_000_000, is_free=False)
 
-        bar_prem_5h = render_model_quota_bar(tok_prem_5h, 400_000, is_free=False)
-        bar_prem_w = render_model_quota_bar(tok_prem_w, 2_000_000, is_free=False)
+        bar_prem_5h = render_model_quota_bar(tok_prem_5h, 600_000, is_free=False)
+        bar_prem_w = render_model_quota_bar(tok_prem_w, 3_000_000, is_free=False)
 
         md.append("### 🟢 1. KATMAN ÖZETİ (Ücretsiz 0 TL vs İşçi vs Uzman - Kendi Kotalarıyla)")
         md.append("| Katman | Kendi Kotası | 5 Saatlik Doluluk Grafiği | Haftalık Doluluk Grafiği |")
         md.append("| :--- | :--- | :--- | :--- |")
         md.append(f"| `🟢 Ücretsiz / Yerel (0 TL)` | 🟢 Sınırsız (Claude Ref) | `{bar_free_5h}` | `{bar_free_w}` |")
         md.append(f"| `⚡ Düşük Kota İşçi (Flash/Codex)` | ⚡ 2.8M / 14M Token | `{bar_low_5h}` | `{bar_low_w}` |")
-        md.append(f"| `💎 Uzman Katman (Claude/Pro)` | 💎 400K / 2M Token | `{bar_prem_5h}` | `{bar_prem_w}` |")
+        md.append(f"| `💎 Uzman Katman (Claude/Argon)` | 💎 600K / 3M Token | `{bar_prem_5h}` | `{bar_prem_w}` |")
         md.append("")
         ratio_val = h5.get("free_and_worker_ratio", 0.0)
         saved_val = h5.get("estimated_saved_usd", 0.0)
@@ -731,9 +891,12 @@ class UsageTracker:
         md.append("---")
         md.append("")
 
-        # 2. BÖLÜM: MODELLER (Her Model Kendi Kotasıyla!)
-        md.append("### 🤖 2. MODELLER (Her Modelin Kendi Kotasına Göre Doluluk Grafiği)")
-        md.append("| Model Adı / Motor | Katman | Kendi Kota Sınırı | 5 Saatlik Doluluk Grafiği | Haftalık Doluluk Grafiği |")
+        # 2. BÖLÜM: ALT MODELLER (Model Model Ayrı Satırlar!)
+        # Kural:
+        # - En üstte sabit standart sırada: 💎/⚡ Ücretli & Kotalı Referans Alt Modelleri
+        # - Hemen altında: 🟢 Ücretsiz & Yerel (0 TL) Modeller — en çok kullanılandan aşağıya doğru dinamik sıralı
+        md.append("### 🤖 2. ALT MODELLER — Model Model Ayrıntılı Kota & Token Doluluk Grafiği")
+        md.append("| Model Adı / Alt Motor | Katman | Kendi Kota Sınırı | 5 Saatlik Doluluk Grafiği | Haftalık Doluluk Grafiği |")
         md.append("| :--- | :--- | :--- | :--- | :--- |")
 
         m_data_5h = self._aggregate_model_tokens(h5.get("_raw_events", []))
@@ -746,45 +909,56 @@ class UsageTracker:
                 return "⚡ Düşük Kota (İşçi)"
             return "💎 Uzman Katman"
 
-        sorted_models = sorted(
-            self.DEFAULT_REGISTERED_MODELS,
-            key=lambda reg: m_data_w.get(reg["name"], {}).get("tokens", 0),
-            reverse=True,
-        )
-
-        for reg in sorted_models:
-            m_name = reg["name"]
+        # 1. Kısım: Ücretli modeller sabit sırada
+        for spec in self.PAID_REFERENCE_MODELS:
+            m_name = spec["name"]
             info_5h = m_data_5h.get(m_name, {})
             info_w = m_data_w.get(m_name, {})
 
             tok_5h = info_5h.get("tokens", 0)
             tok_w = info_w.get("tokens", 0)
 
-            lim_5h = reg.get("limit_5h", REF_FREE_LIMIT_5H)
-            lim_w = reg.get("limit_weekly", REF_FREE_LIMIT_WEEKLY)
-            is_free = reg.get("is_free", True)
+            lim_5h = spec["limit_5h"]
+            lim_w = spec["limit_weekly"]
 
-            bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=is_free)
-            bar_w = render_model_quota_bar(tok_w, lim_w, is_free=is_free)
-            badge = get_model_tier_badge(reg["tier"])
-            q_desc = reg.get("quota_type", "")
+            bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=False)
+            bar_w = render_model_quota_bar(tok_w, lim_w, is_free=False)
+            badge = get_model_tier_badge(spec["tier"])
+            q_desc = spec.get("quota_type", "")
 
             md.append(f"| `{m_name}` | {badge} | {q_desc} | `{bar_5h}` | `{bar_w}` |")
 
-        # Ekstra modeller
-        for extra_name, extra_info in m_data_w.items():
-            if not any(reg["name"] == extra_name for reg in self.DEFAULT_REGISTERED_MODELS):
-                tok_5h = m_data_5h.get(extra_name, {}).get("tokens", 0)
-                tok_w = extra_info.get("tokens", 0)
-                bar_5h = render_model_quota_bar(tok_5h, REF_FREE_LIMIT_5H, is_free=True)
-                bar_w = render_model_quota_bar(tok_w, REF_FREE_LIMIT_WEEKLY, is_free=True)
-                md.append(f"| `{extra_name}` | 🟢 Ek Model | 🟢 0 TL | `{bar_5h}` | `{bar_w}` |")
+        # 2. Kısım: Ücretsiz modeller en çok kullanılandan en aza doğru sıralı
+        sorted_free = sorted(
+            self.FREE_REFERENCE_MODELS,
+            key=lambda spec: m_data_w.get(spec["name"], {}).get("tokens", 0),
+            reverse=True,
+        )
+
+        for spec in sorted_free:
+            m_name = spec["name"]
+            info_5h = m_data_5h.get(m_name, {})
+            info_w = m_data_w.get(m_name, {})
+
+            tok_5h = info_5h.get("tokens", 0)
+            tok_w = info_w.get("tokens", 0)
+
+            lim_5h = spec.get("limit_5h", REF_FREE_LIMIT_5H)
+            lim_w = spec.get("limit_weekly", REF_FREE_LIMIT_WEEKLY)
+
+            bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=True)
+            bar_w = render_model_quota_bar(tok_w, lim_w, is_free=True)
+            badge = get_model_tier_badge(spec["tier"])
+            q_desc = spec.get("quota_type", "")
+
+            md.append(f"| `{m_name}` | {badge} | {q_desc} | `{bar_5h}` | `{bar_w}` |")
 
         md.append("")
         md.append("---")
         md.append("")
 
         # 3. BÖLÜM: CLI ARAÇLARI
+        # Ücretli CLI'lar üstte, ücretsizler en çok kullanılandan en aza sıralı
         md.append("### 🛠️ 3. CLI ARAÇLARI (Kendi Kotalarına Göre Doluluk Grafiği)")
         md.append("| CLI Aracı | Lisans / Donanım | Kendi Kotası | 5 Saatlik Doluluk Grafiği | Haftalık Doluluk Grafiği |")
         md.append("| :--- | :--- | :--- | :--- | :--- |")
@@ -792,14 +966,14 @@ class UsageTracker:
         cli_5h_tokens = self._aggregate_cli_tokens(h5.get("_raw_events", []))
         cli_w_tokens = self._aggregate_cli_tokens(w.get("_raw_events", []))
 
-        all_clis = set(cli_5h_tokens.keys()).union(cli_w_tokens.keys())
-        standard_clis = ["TestRunner", "OpenCode", "Hermes", "Codex", "ClaudeCode", "YerelOllama"]
-        for sc in standard_clis:
-            all_clis.add(sc)
+        paid_clis = ["ClaudeCode", "Codex"]
+        free_clis = ["TestRunner", "OpenCode", "Hermes", "YerelOllama"]
 
-        sorted_clis = sorted(all_clis, key=lambda c: cli_w_tokens.get(c, {}).get("tokens", 0), reverse=True)
+        # Ücretsizleri haftalık token kullanımına göre azalan sırala
+        sorted_free_clis = sorted(free_clis, key=lambda c: cli_w_tokens.get(c, {}).get("tokens", 0), reverse=True)
+        ordered_clis = paid_clis + sorted_free_clis
 
-        for c_name in sorted_clis:
+        for c_name in ordered_clis:
             tok_5h = cli_5h_tokens.get(c_name, {}).get("tokens", 0)
             tok_w = cli_w_tokens.get(c_name, {}).get("tokens", 0)
 

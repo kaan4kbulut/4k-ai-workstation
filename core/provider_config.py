@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import dataclass
 
 from wrappers.openai_compatible_wrapper import OpenAICompatibleWrapper
@@ -60,20 +61,57 @@ def _resolve_api_key(raw: dict) -> str | None:
     return None
 
 
+def is_provider_zero_cost_allowed(
+    base_url: str,
+    model: str,
+    cost: float = 0.0,
+    is_local: bool = False,
+) -> bool:
+    """
+    Sıfır API Harcaması Kalkanı:
+    Maliyeti 0'dan büyük olan veya yerel olmayıp :free taşımayan sağlayıcıları reddeder.
+    """
+    if cost > 0.0:
+        return False
+    b = (base_url or "").lower().strip()
+    m = (model or "").lower().strip()
+    is_local_url = (
+        "127.0.0.1" in b
+        or "localhost" in b
+        or "::1" in b
+        or "0.0.0.0" in b
+    )
+    if is_local or is_local_url:
+        return True
+    if ":free" in m:
+        return True
+    return False
+
+
 def parse_providers(data: dict) -> list[ProviderConfig]:
-    """Ham JSON sözlüğünü :class:`ProviderConfig` listesine çevirir."""
+    """Ham JSON sözlüğünü :class:`ProviderConfig` listesine çevirir.
+    Ücretli veya izin verilmeyen bulut sağlayıcıları $0.00 Kalkanı ile otomatik elenir.
+    """
     configs: list[ProviderConfig] = []
     for raw in data.get("providers", []):
+        base_url = raw.get("base_url", "")
+        model = raw.get("model", "")
+        cost = float(raw.get("cost", 0.0))
+        is_local = bool(raw.get("local", False))
+
+        if not is_provider_zero_cost_allowed(base_url, model, cost, is_local):
+            continue
+
         configs.append(
             ProviderConfig(
                 name=raw["name"],
-                base_url=raw["base_url"],
-                model=raw["model"],
+                base_url=base_url,
+                model=model,
                 api_key=_resolve_api_key(raw),
                 timeout=float(raw.get("timeout", 120)),
                 capability_score=int(raw.get("capability", 6)),
-                cost_per_token=float(raw.get("cost", 0.0)),
-                is_local=bool(raw.get("local", False)),
+                cost_per_token=0.0,
+                is_local=is_local,
                 strengths=tuple(raw.get("strengths", [])),
             )
         )
@@ -81,12 +119,24 @@ def parse_providers(data: dict) -> list[ProviderConfig]:
 
 
 def load_provider_configs(path: str | None = None) -> list[ProviderConfig]:
-    """Yapılandırma dosyasını okur. Dosya yoksa boş liste döner."""
+    """Yapılandırma dosyasını okur. Ücretli modeller Sıfır Harcama Kalkanı ile filtrelenir."""
     path = path or os.environ.get("NEXUS_PROVIDERS") or DEFAULT_CONFIG_PATH
     if not os.path.exists(path):
         return []
     with open(path, "r", encoding="utf-8") as handle:
-        return parse_providers(json.load(handle))
+        configs = parse_providers(json.load(handle))
+
+    filtered: list[ProviderConfig] = []
+    for c in configs:
+        if is_provider_zero_cost_allowed(c.base_url, c.model, c.cost_per_token, c.is_local):
+            c.cost_per_token = 0.0  # Zorunlu 0.0 TL
+            filtered.append(c)
+    return filtered
+
+
+def load_custom_providers(path: str | None = None) -> list[ProviderConfig]:
+    """Özel sağlayıcıları yükler (load_provider_configs alias)."""
+    return load_provider_configs(path)
 
 
 def build_wrapper(config: ProviderConfig) -> OpenAICompatibleWrapper:
@@ -101,7 +151,22 @@ def build_wrapper(config: ProviderConfig) -> OpenAICompatibleWrapper:
 
 
 def upsert_provider_config(entry: dict, path: str | None = None) -> list[ProviderConfig]:
-    """Yeni bir sağlayıcıyı config/providers.json dosyasına ekler veya günceller."""
+    """Yeni bir sağlayıcıyı config/providers.json dosyasına ekler veya günceller.
+    Ücretli sağlayıcılar ($0.00 Kalkanı) tarafından reddedilir.
+    """
+    cost = float(entry.get("cost", 0.0))
+    base_url = entry.get("base_url", "")
+    model = entry.get("model", "")
+    is_local = bool(entry.get("local", False))
+
+    if not is_provider_zero_cost_allowed(base_url, model, cost, is_local):
+        raise ValueError(
+            "🔒 SIFIR HARCAMA KİLİDİ: Ücretli sağlayıcı eklenemez ($0.00 Kalkanı). "
+            "Yalnızca yerel veya model adında ':free' bulunan 0 TL modeller kabul edilir."
+        )
+
+    entry["cost"] = 0.0  # Zorunlu sıfır maliyet
+
     path = path or os.environ.get("NEXUS_PROVIDERS") or DEFAULT_CONFIG_PATH
     data: dict = {"providers": []}
     if os.path.exists(path):

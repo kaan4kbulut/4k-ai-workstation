@@ -1,5 +1,12 @@
 # AGENTS.md
 
+## 🔒 KIRMIZI ÇİZGİ: SIFIR API HARCAMASI KİLİDİ ($0.00 API KALKANI)
+- Ne Antigravity ne de 4K AI WORKSTATION **ASLA VE ASLA ücretli (kullandıkça öde / kontörlü / bakiyeli) bir API üzerinden harcama yapamaz!**
+- API üzerinden yalnızca **%100 Ücretsiz (`0.00 TL`)** kaynaklar (`http://127.0.0.1:11434` Yerel Ollama ve `:free` etiketli OpenRouter ücretsiz modelleri) çağrılabilir.
+- CLI araçları (`Claude Code`, `Codex`, `Hermes`, `OpenCode`) asla `ANTHROPIC_API_KEY` veya `OPENAI_API_KEY` ile bakiyeli API modunda çalıştırılmaz; yalnızca ücretsiz modda veya kullanıcının mevcut sabit oturumuyla (ekstra 1 kuruş bile yazmadan) çalışır.
+
+---
+
 Bu dosya, bu projede çalışan tüm ajanlar (OpenCode, Hermes vb.) için kuralları
 tanımlar.
 

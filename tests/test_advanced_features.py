@@ -418,30 +418,30 @@ class ProviderConfigAndQuotaTests(unittest.TestCase):
             groq_entry = {
                 "name": "Groq",
                 "base_url": "https://api.groq.com/openai/v1",
-                "model": "llama-3.3-70b-versatile",
+                "model": "llama-3.3-70b-versatile:free",
                 "api_key": "gsk_test123",
                 "capability": 9,
-                "cost": 0.01,
+                "cost": 0.0,
                 "strengths": ["chat", "code"],
             }
             configs = upsert_provider_config(groq_entry, path=cfg_path)
             self.assertEqual(len(configs), 1)
             self.assertEqual(configs[0].name, "Groq")
-            self.assertEqual(configs[0].model, "llama-3.3-70b-versatile")
+            self.assertEqual(configs[0].model, "llama-3.3-70b-versatile:free")
             self.assertEqual(configs[0].capability_score, 9)
 
             # 2) Sağlayıcıyı güncelle (modelini değiştir, liste uzunluğu 1 kalmalı)
             groq_entry_updated = dict(groq_entry)
-            groq_entry_updated["model"] = "mixtral-8x7b-32768"
+            groq_entry_updated["model"] = "mixtral-8x7b-32768:free"
             configs_updated = upsert_provider_config(groq_entry_updated, path=cfg_path)
             self.assertEqual(len(configs_updated), 1)
-            self.assertEqual(configs_updated[0].model, "mixtral-8x7b-32768")
+            self.assertEqual(configs_updated[0].model, "mixtral-8x7b-32768:free")
 
             # 3) İkinci bir sağlayıcı ekle
             openrouter_entry = {
                 "name": "OpenRouterCustom",
                 "base_url": "https://openrouter.ai/api/v1",
-                "model": "anthropic/claude-3.5-sonnet",
+                "model": "qwen/qwen-2.5-coder-32b-instruct:free",
             }
             configs_two = upsert_provider_config(openrouter_entry, path=cfg_path)
             self.assertEqual(len(configs_two), 2)

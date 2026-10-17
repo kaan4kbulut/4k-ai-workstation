@@ -4,6 +4,7 @@ Tests for core.usage_tracker.UsageTracker
 
 import json
 import os
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -30,6 +31,9 @@ class TestUsageTracker(unittest.TestCase):
         self.storage_file = os.path.join(self.temp_dir.name, "events.json")
         self.brain_dir = os.path.join(self.temp_dir.name, "brain")
         os.makedirs(self.brain_dir, exist_ok=True)
+        self.conversations_dir = os.path.join(self.temp_dir.name, "conversations")
+        os.makedirs(self.conversations_dir, exist_ok=True)
+
         self.tracker = UsageTracker(
             storage_path=self.storage_file, brain_dir=self.brain_dir
         )
@@ -42,13 +46,11 @@ class TestUsageTracker(unittest.TestCase):
         self.assertEqual(format_tokens(52_000), "52.0K")
         self.assertEqual(format_tokens(1_450_000), "1.45M")
 
-        # Ücretli model barı (örn. Claude: 20K / 400K -> %5.0)
         bar_claude = render_model_quota_bar(20_000, 400_000, is_free=False, width=20)
         self.assertIn("%5.0", bar_claude)
         self.assertIn("20.0K / 400.0K", bar_claude)
         self.assertNotIn("🔥", bar_claude)
 
-        # Ücretsiz model barı (örn. 600K / 400K -> %150.0 ve 🔥)
         bar_free_over = render_model_quota_bar(600_000, 400_000, is_free=True, width=20)
         self.assertIn("%150.0", bar_free_over)
         self.assertIn("600.0K Token", bar_free_over)
@@ -66,20 +68,24 @@ class TestUsageTracker(unittest.TestCase):
             "Hermes",
             "OpenCode",
             "flash_lite",
+            "3.5-flash-lite",
             "MODEL_TIER_FLASH_LITE",
+            "nvidia/llama-3.1-nemotron-70b-instruct:free",
+            "Qwen/Qwen2.5-Coder-32B-Instruct:free",
+            "huggingface-zephyr",
         ]
         for name in free_models:
             cls_info = self.tracker.classify_model_or_tool(name)
             self.assertTrue(cls_info["is_free"], f"{name} should be is_free=True")
             self.assertEqual(cls_info["tier"], "free", f"{name} should have tier='free'")
 
-        low_quota_models = ["flash", "MODEL_TIER_FLASH", "Codex"]
+        low_quota_models = ["flash", "MODEL_TIER_FLASH", "Codex", "3.8-flash", "gpt-oss"]
         for name in low_quota_models:
             cls_info = self.tracker.classify_model_or_tool(name)
             self.assertFalse(cls_info["is_free"], f"{name} should be is_free=False")
             self.assertEqual(cls_info["tier"], "low_quota", f"{name} should have tier='low_quota'")
 
-        premium_models = ["ClaudeCode", "claude", "pro", "MODEL_TIER_PRO"]
+        premium_models = ["ClaudeCode", "claude", "pro", "MODEL_TIER_PRO", "argon", "opus", "fable"]
         for name in premium_models:
             cls_info = self.tracker.classify_model_or_tool(name)
             self.assertFalse(cls_info["is_free"], f"{name} should be is_free=False")
@@ -138,113 +144,24 @@ class TestUsageTracker(unittest.TestCase):
         self.assertEqual(report["weekly"]["total_events"], 3)
         self.assertEqual(report["monthly"]["total_events"], 4)
 
-    def test_savings_and_ratio_calculation(self):
-        now = datetime.now(timezone.utc)
-        for i in range(10):
-            self.tracker.record_event(
-                category="model",
-                name=f"free_model_{i}",
-                tier="free",
-                is_free=True,
-                tokens_est=5000,
-                timestamp=now.isoformat(),
-            )
+    def test_scan_conversations_db(self):
+        fake_db = os.path.join(self.conversations_dir, "test-conv-123.db")
+        conn = sqlite3.connect(fake_db)
+        cur = conn.cursor()
+        cur.execute("CREATE TABLE gen_metadata (idx INTEGER PRIMARY KEY, data BLOB, size INTEGER)")
 
-        for i in range(5):
-            self.tracker.record_event(
-                category="model",
-                name=f"flash_{i}",
-                tier="low_quota",
-                is_free=False,
-                tokens_est=5000,
-                timestamp=now.isoformat(),
-            )
+        blob_argon = b"\x00\x01\x9a\x01\x13gemini-4-argon-trial\xa2\x01\x05extra"
+        blob_flash = b"\x00\x01\x9a\x01\x17gemini-3.8-flash-tiered\xa2\x01\x05extra"
+        cur.execute("INSERT INTO gen_metadata (idx, data, size) VALUES (0, ?, ?)", (blob_argon, len(blob_argon)))
+        cur.execute("INSERT INTO gen_metadata (idx, data, size) VALUES (1, ?, ?)", (blob_flash, len(blob_flash)))
+        conn.commit()
+        conn.close()
 
-        for i in range(5):
-            self.tracker.record_event(
-                category="model",
-                name=f"claude_{i}",
-                tier="premium",
-                is_free=False,
-                tokens_est=5000,
-                timestamp=now.isoformat(),
-            )
-
-        report = self.tracker.get_report(include_antigravity=False)
-        daily = report["daily"]
-
-        self.assertEqual(daily["total_events"], 20)
-        self.assertEqual(daily["free_events"], 10)
-        self.assertEqual(daily["low_quota_events"], 5)
-        self.assertEqual(daily["premium_events"], 5)
-        self.assertEqual(daily["free_And_worker_ratio"], 75.0)
-        self.assertAlmostEqual(daily["estimated_saved_usd"], 0.40, places=2)
-
-    def test_scan_antigravity_brain(self):
-        now = datetime.now(timezone.utc).isoformat()
-        conv_dir = os.path.join(
-            self.brain_dir, "fake-conv-123", ".system_generated", "logs"
-        )
-        os.makedirs(conv_dir, exist_ok=True)
-        transcript_file = os.path.join(conv_dir, "transcript_full.jsonl")
-
-        lines = [
-            json.dumps({
-                "step_index": 1,
-                "created_at": now,
-                "input_tokens": 1000,
-                "output_tokens": 200,
-                "tool_calls": [
-                    {
-                        "name": "invoke_subagent",
-                        "args": {
-                            "Subagents": json.dumps([
-                                {"Role": "UI Uzmanı", "Model": "flash"},
-                                {"Role": "Test Uzmanı", "Model": "flash_lite"},
-                            ])
-                        },
-                    }
-                ],
-            }),
-            json.dumps({
-                "step_index": 2,
-                "created_at": now,
-                "tool_calls": [
-                    {
-                        "name": "send_message",
-                        "args": {
-                            "Recipient": "subagent-12345",
-                            "Message": "Lütfen testleri çalıştır",
-                            "toolSummary": "Test Yönergesi",
-                        },
-                    }
-                ],
-            }),
-            json.dumps({
-                "step_index": 3,
-                "created_at": now,
-                "tool_calls": [
-                    {
-                        "name": "run_command",
-                        "args": {
-                            "CommandLine": "codex exec 'fix bug' && python -m unittest tests/test_core.py"
-                        },
-                    }
-                ],
-            }),
-        ]
-
-        with open(transcript_file, "w", encoding="utf-8") as f:
-            for l in lines:
-                f.write(l + "\n")
-
-        events = self.tracker.scan_antigravity_brain()
-        self.assertTrue(len(events) >= 6)
-
-        categories = [e["category"] for e in events]
-        self.assertIn("agent", categories)
-        self.assertIn("model", categories)
-        self.assertIn("cli", categories)
+        events = self.tracker.scan_conversations_db()
+        self.assertEqual(len(events), 2)
+        names = [e["name"] for e in events]
+        self.assertIn("gemini-4-argon-trial", names)
+        self.assertIn("gemini-3.8-flash-tiered", names)
 
     def test_format_all_in_one_markdown(self):
         now = datetime.now(timezone.utc).isoformat()
@@ -272,13 +189,56 @@ class TestUsageTracker(unittest.TestCase):
         self.assertNotIn("Nexus AI Studio", md)
         self.assertIn("4K AI WORKSTATION", md)
 
-        self.assertIn("1. KATMAN ÖZETİ", md)
-        self.assertIn("2. MODELLER", md)
-        self.assertIn("3. CLI ARAÇLARI", md)
-        self.assertIn("4. AJANLAR & ALT AJANLAR", md)
+        # 2. ALT MODELLER başlığı
+        self.assertIn("2. ALT MODELLER", md)
+        self.assertIn("Claude Opus 5.5", md)
+        self.assertIn("Gemini 4 Argon", md)
+        self.assertIn("Gemini 3.8 Flash", md)
+        self.assertIn("Gemini 3.5 Flash-Lite", md)
+        self.assertIn("NVIDIA Nemotron", md)
+        self.assertIn("HuggingFace", md)
 
-        # 600K ücretsiz token > 400K Claude referansı -> %150.0 ve 🔥 olmalı!
-        self.assertIn("🔥", md)
+        # Ücretli modellerin en üstte olduğunu teyit et (Opus'un indeksi Llama3'ten önce olmalı)
+        idx_opus = md.find("Claude Opus 5.5")
+        idx_llama = md.find("Llama 3 8B")
+        self.assertTrue(idx_opus < idx_llama, "Ücretli referans modeller her zaman ücretsiz modellerden önce gelmeli!")
+
+    def test_audit_paid_api_risks(self):
+        # 1. Varsayılan güvenli ortam (geçici sahte providers.json ile)
+        safe_providers = os.path.join(self.temp_dir.name, "safe_providers.json")
+        with open(safe_providers, "w", encoding="utf-8") as f:
+            json.dump({
+                "providers": [
+                    {"name": "YerelOllama", "base_url": "http://127.0.0.1:11434/v1", "model": "llama3", "cost": 0.0, "local": True},
+                    {"name": "OpenRouterFree", "base_url": "https://openrouter.ai/api/v1", "model": "qwen:free", "cost": 0.0, "local": False}
+                ]
+            }, f)
+
+        audit_clean = self.tracker.audit_paid_api_risks(providers_path=safe_providers)
+        self.assertTrue(audit_clean["safe"])
+        self.assertIn("SIFIR API HARCAMA KALKANI AKTİF", audit_clean["status_line"])
+
+        # 2. Sahte ücretli ortam değişkeni eklendiğinde uyarı vermeli
+        os.environ["OPENAI_API_KEY"] = "sk-paid-secret-key-12345"
+        try:
+            audit_env_risk = self.tracker.audit_paid_api_risks(providers_path=safe_providers)
+            self.assertFalse(audit_env_risk["safe"])
+            self.assertTrue(any("OPENAI_API_KEY" in w for w in audit_env_risk["warnings"]))
+        finally:
+            del os.environ["OPENAI_API_KEY"]
+
+        # 3. Sahte ücretli sağlayıcı eklendiğinde uyarı vermeli
+        risky_providers = os.path.join(self.temp_dir.name, "risky_providers.json")
+        with open(risky_providers, "w", encoding="utf-8") as f:
+            json.dump({
+                "providers": [
+                    {"name": "PaidOpenAI", "base_url": "https://api.openai.com/v1", "model": "gpt-4o", "cost": 0.03, "local": False}
+                ]
+            }, f)
+
+        audit_provider_risk = self.tracker.audit_paid_api_risks(providers_path=risky_providers)
+        self.assertFalse(audit_provider_risk["safe"])
+        self.assertTrue(any("PaidOpenAI" in w for w in audit_provider_risk["warnings"]))
 
 
 if __name__ == "__main__":
