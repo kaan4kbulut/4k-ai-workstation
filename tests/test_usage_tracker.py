@@ -197,13 +197,17 @@ class TestUsageTracker(unittest.TestCase):
         self.assertNotIn("Nexus AI Studio", md)
         self.assertIn("4K AI WORKSTATION", md)
 
-        # 2. ALT MODELLER başlığı
-        self.assertIn("2. ALT MODELLER", md)
+        # 2. MODELLER VE EFORLAR başlığı ve Sağlayıcı grupları
+        self.assertIn("2. MODELLER VE EFORLAR", md)
+        self.assertIn("Anthropic (Claude", md)
+        self.assertIn("OpenAI Ailesi", md)
+        self.assertIn("Google (Gemini", md)
+        self.assertIn("Açık Kaynak", md)
         self.assertIn("Claude Opus 5.5", md)
         self.assertIn("Gemini 4 Argon", md)
         self.assertIn("Gemini 3.8 Flash", md)
         self.assertIn("Gemini 3.5 Flash-Lite", md)
-        self.assertIn("NVIDIA Nemotron", md)
+        self.assertIn("NVIDIA Llama 3.1 Nemotron 70B:free", md)
         self.assertIn("HuggingFace", md)
 
         # Ücretli modellerin en üstte olduğunu teyit et (Opus'un indeksi Llama3'ten önce olmalı)

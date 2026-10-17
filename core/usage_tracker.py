@@ -83,88 +83,95 @@ class UsageTracker:
     görsel ve finansal tasarruf raporlarına dönüştüren analitik motoru.
     """
 
+    # Sağlayıcı / Firma Tanımları
+    PROVIDERS = {
+        "anthropic": {"name": "Anthropic", "label": "🟣 Anthropic (Claude)", "color": "🟣", "default_limit_5h": 400_000, "default_limit_w": 2_000_000},
+        "openai": {"name": "OpenAI", "label": "🟢 OpenAI", "color": "🟢", "default_limit_5h": 800_000, "default_limit_w": 4_000_000},
+        "google": {"name": "Google", "label": "🔵 Google (Gemini)", "color": "🔵", "default_limit_5h": 1_500_000, "default_limit_w": 7_500_000},
+        "opensource": {"name": "Açık Kaynak & Yerel", "label": "🌐 Açık Kaynak / Yerel (0 TL)", "color": "🌐", "default_limit_5h": REF_FREE_LIMIT_5H, "default_limit_w": REF_FREE_LIMIT_WEEKLY},
+    }
+
     # 1. En Çok Token Harcayan (En Ağır Kota & En Yüksek Efor) Modellerden Aşağıya Doğru Sabit Standart Sıra
     PAID_REFERENCE_MODELS = [
-        # --- 200K - 300K (5s) EN AĞIR UZMAN MODELLER (OPUS MAX -> HIGH -> MEDIUM -> LOW) ---
-        {"name": "Claude Opus 5.5 (Max)", "match_keys": ["claude-opus-5-5-max", "opus-5.5-max"], "tier": "premium", "is_free": False, "limit_5h": 200_000, "limit_weekly": 1_000_000, "quota_type": "💎 200K (5s) • 1.00M (Hafta)"},
-        {"name": "Claude Opus 5.5 (High)", "match_keys": ["claude-opus-5-5-high", "opus-5.5-high"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 250K (5s) • 1.25M (Hafta)"},
-        {"name": "Claude Opus 5.5 (Medium)", "match_keys": ["claude-opus-5-5-medium", "opus-5.5-medium", "claude-opus-5.5"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 250K (5s) • 1.25M (Hafta)"},
-        {"name": "Claude Opus 5.5 (Low)", "match_keys": ["claude-opus-5-5-low", "opus-5.5-low"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 300K (5s) • 1.50M (Hafta)"},
-        {"name": "Claude Opus 4.8", "match_keys": ["claude-opus-4-8", "claude-opus-4.8", "opus-4.8"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 300K (5s) • 1.50M (Hafta)"},
-        {"name": "Claude Opus 4.6", "match_keys": ["claude-opus-4-6", "claude-opus-4.6", "opus-4.6"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 300K (5s) • 1.50M (Hafta)"},
-        {"name": "Claude Opus 4.5", "match_keys": ["claude-opus-4-5", "claude-opus-4.5", "opus-4.5", "4.5-opus"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 300K (5s) • 1.50M (Hafta)"},
-        # --- 350K - 400K (5s) AĞIR UZMAN MODELLER (SONNET MAX/HIGH, O3 HIGH, GPT-5 HIGH, FABLE) ---
-        {"name": "Claude Sonnet 5.5 (Max)", "match_keys": ["claude-sonnet-5-5-max", "sonnet-5.5-max"], "tier": "premium", "is_free": False, "limit_5h": 350_000, "limit_weekly": 1_750_000, "quota_type": "💎 350K (5s) • 1.75M (Hafta)"},
-        {"name": "OpenAI o3 (High)", "match_keys": ["o3-high", "openai-o3-high"], "tier": "premium", "is_free": False, "limit_5h": 350_000, "limit_weekly": 1_750_000, "quota_type": "💎 350K (5s) • 1.75M (Hafta)"},
-        {"name": "Claude Sonnet 5.5 (High)", "match_keys": ["claude-sonnet-5-5-high", "sonnet-5.5-high"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
-        {"name": "OpenAI GPT-5 (High)", "match_keys": ["gpt-5-high", "openai-gpt-5-high"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
-        {"name": "OpenAI o3 (Medium)", "match_keys": ["o3-medium", "openai-o3-medium", "openai-o3"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
-        {"name": "OpenAI o1", "match_keys": ["o1-pro", "o1-preview", "openai-o1"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
-        {"name": "Claude Fable 5.1", "match_keys": ["fable-5.1", "fable", "claude-fable"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
-        {"name": "Claude Sonnet 4.6", "match_keys": ["claude-sonnet-4-6", "claude-sonnet-4.6", "sonnet-4.6", "claudecode", "claude-code"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
-        {"name": "Claude Sonnet 4.5", "match_keys": ["claude-sonnet-4-5", "claude-sonnet-4.5", "sonnet-4.5"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
-        {"name": "Claude Sonnet 4.0", "match_keys": ["claude-sonnet-4-0", "claude-sonnet-4.0", "sonnet-4.0"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
-        {"name": "Claude 3.5 Sonnet", "match_keys": ["claude-3-5-sonnet", "claude-3.5-sonnet", "3.5-sonnet"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
-        # --- 450K - 600K (5s) ORTA-AĞIR UZMAN MODELLER (SONNET MED/LOW, GPT-5 MED/LOW, GPT-4.5, ULTRA) ---
-        {"name": "Claude Sonnet 5.5 (Medium)", "match_keys": ["claude-sonnet-5-5-medium", "sonnet-5.5-medium", "claude-sonnet-5-5"], "tier": "premium", "is_free": False, "limit_5h": 450_000, "limit_weekly": 2_250_000, "quota_type": "💎 450K (5s) • 2.25M (Hafta)"},
-        {"name": "OpenAI GPT-5 (Medium)", "match_keys": ["gpt-5-medium", "openai-gpt-5-medium", "openai-gpt-5"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 500K (5s) • 2.50M (Hafta)"},
-        {"name": "OpenAI GPT-4.5", "match_keys": ["gpt-4.5", "openai-gpt-4.5"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 500K (5s) • 2.50M (Hafta)"},
-        {"name": "OpenAI o3 (Low)", "match_keys": ["o3-low", "openai-o3-low"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 500K (5s) • 2.50M (Hafta)"},
-        {"name": "Claude Sonnet 5.5 (Low)", "match_keys": ["claude-sonnet-5-5-low", "sonnet-5.5-low"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 500K (5s) • 2.50M (Hafta)"},
-        {"name": "OpenAI GPT-5 (Low)", "match_keys": ["gpt-5-low", "openai-gpt-5-low"], "tier": "premium", "is_free": False, "limit_5h": 600_000, "limit_weekly": 3_000_000, "quota_type": "💎 600K (5s) • 3.00M (Hafta)"},
-        {"name": "Gemini 3.1 Ultra", "match_keys": ["gemini-3.1-ultra", "3.1-ultra"], "tier": "premium", "is_free": False, "limit_5h": 600_000, "limit_weekly": 3_000_000, "quota_type": "💎 600K (5s) • 3.00M (Hafta)"},
-        # --- 800K - 1.20M (5s) PRO & YÜKSEK KAPASİTELİ MODELLER (CODEX, GPT-4O, GEMINI PRO, ARGON HIGH) ---
-        {"name": "OpenAI GPT-5.2 Codex", "match_keys": ["codex", "gpt-5.2", "openai-codex"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ 800K (5s) • 4.00M (Hafta)"},
-        {"name": "OpenAI GPT-4o", "match_keys": ["gpt-4o", "openai-gpt4o"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ 800K (5s) • 4.00M (Hafta)"},
-        {"name": "Gemini 3.1 Pro (High)", "match_keys": ["gemini-3.1-pro-high", "3.1-pro-high"], "tier": "premium", "is_free": False, "limit_5h": 900_000, "limit_weekly": 4_500_000, "quota_type": "💎 900K (5s) • 4.50M (Hafta)"},
-        {"name": "Gemini 3.1 Pro (Medium)", "match_keys": ["gemini-3.1-pro-medium", "gemini-3.1-pro", "3.1-pro", "gemini-pro"], "tier": "premium", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "💎 1.00M (5s) • 5.00M (Hafta)"},
-        {"name": "OpenAI o4-mini (High)", "match_keys": ["o4-mini-high"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ 1.00M (5s) • 5.00M (Hafta)"},
-        {"name": "OpenAI o3-mini (High)", "match_keys": ["o3-mini-high"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ 1.00M (5s) • 5.00M (Hafta)"},
-        {"name": "OpenAI GPT-OSS 120B (Medium)", "match_keys": ["gpt-oss-120b-medium", "gpt-oss-120b", "oss-120b"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ 1.00M (5s) • 5.00M (Hafta)"},
-        {"name": "Gemini 4 Argon (High)", "match_keys": ["gemini-4-argon-high", "argon-high"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 1.20M (5s) • 6.00M (Hafta)"},
-        {"name": "Gemini 3.1 Pro (Low)", "match_keys": ["gemini-3.1-pro-low", "3.1-pro-low"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 1.20M (5s) • 6.00M (Hafta)"},
-        {"name": "Gemini 2.5 Pro", "match_keys": ["gemini-2.5-pro", "2.5-pro"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 1.20M (5s) • 6.00M (Hafta)"},
-        {"name": "OpenAI o4-mini (Medium)", "match_keys": ["o4-mini-medium", "o4-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "⚡ 1.20M (5s) • 6.00M (Hafta)"},
-        {"name": "OpenAI o3-mini (Medium)", "match_keys": ["o3-mini-medium", "o3-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "⚡ 1.20M (5s) • 6.00M (Hafta)"},
-        # --- 1.50M - 1.80M (5s) ARGON MEDIUM/LOW & HIZLI İŞÇİ MODELLER (HAIKU, O4/O3 LOW) ---
-        {"name": "Gemini 4 Argon (Medium)", "match_keys": ["gemini-4-argon-medium", "gemini-4-argon-trial", "gemini-4-argon", "argon"], "tier": "premium", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "💎 1.50M (5s) • 7.50M (Hafta)"},
-        {"name": "Claude Haiku 4.5", "match_keys": ["claude-haiku-4-5", "claude-haiku-4.5", "haiku-4.5"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ 1.50M (5s) • 7.50M (Hafta)"},
-        {"name": "Claude Haiku 3.5", "match_keys": ["claude-3-5-haiku", "claude-3.5-haiku", "haiku-3.5", "haiku"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ 1.50M (5s) • 7.50M (Hafta)"},
-        {"name": "OpenAI o4-mini (Low)", "match_keys": ["o4-mini-low"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ 1.50M (5s) • 7.50M (Hafta)"},
-        {"name": "OpenAI o3-mini (Low)", "match_keys": ["o3-mini-low"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ 1.50M (5s) • 7.50M (Hafta)"},
-        {"name": "OpenAI GPT-OSS 20B", "match_keys": ["gpt-oss-20b", "oss-20b"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ 1.50M (5s) • 7.50M (Hafta)"},
-        {"name": "Gemini 4 Argon (Low)", "match_keys": ["gemini-4-argon-low", "argon-low"], "tier": "premium", "is_free": False, "limit_5h": 1_800_000, "limit_weekly": 9_000_000, "quota_type": "💎 1.80M (5s) • 9.00M (Hafta)"},
-        # --- 2.00M - 3.00M (5s) DÜŞÜK KOTALI FLASH & MINI İŞÇİ MODELLER (HIGH -> MEDIUM -> LOW) ---
-        {"name": "OpenAI GPT-4o-mini", "match_keys": ["gpt-4o-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ 2.00M (5s) • 10.0M (Hafta)"},
-        {"name": "Gemini 3.8 Flash (High)", "match_keys": ["gemini-3.8-flash-high", "3.8-flash-high"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ 2.00M (5s) • 10.0M (Hafta)"},
-        {"name": "Gemini 3.7 Flash (High)", "match_keys": ["gemini-3.7-flash-high", "3.7-flash-high"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ 2.00M (5s) • 10.0M (Hafta)"},
-        {"name": "Gemini 3.8 Flash (Medium)", "match_keys": ["gemini-3.8-flash-medium", "gemini-3.8-flash-tiered", "gemini-3.8-flash", "3.8-flash", "flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ 2.50M (5s) • 12.5M (Hafta)"},
-        {"name": "Gemini 3.7 Flash (Medium)", "match_keys": ["gemini-3.7-flash-medium", "gemini-3.7-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ 2.50M (5s) • 12.5M (Hafta)"},
-        {"name": "Gemini 3.6 Flash (Medium)", "match_keys": ["gemini-3.6-flash-medium", "gemini-3.6-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ 2.50M (5s) • 12.5M (Hafta)"},
-        {"name": "Gemini 3.5 Flash (High)", "match_keys": ["gemini-3.5-flash-high", "3.5-flash-high"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ 2.50M (5s) • 12.5M (Hafta)"},
-        {"name": "Gemini 2.5 Flash", "match_keys": ["gemini-2.5-flash", "2.5-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ 2.50M (5s) • 12.5M (Hafta)"},
-        {"name": "Gemini 3.8 Flash (Low)", "match_keys": ["gemini-3.8-flash-low", "3.8-flash-low"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ 3.00M (5s) • 15.0M (Hafta)"},
-        {"name": "Gemini 3.7 Flash (Low)", "match_keys": ["gemini-3.7-flash-low", "3.7-flash-low"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ 3.00M (5s) • 15.0M (Hafta)"},
-        {"name": "Gemini 3.6 Flash (Low)", "match_keys": ["gemini-3.6-flash-low", "3.6-flash-low"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ 3.00M (5s) • 15.0M (Hafta)"},
-        {"name": "Gemini 3.5 Flash (Low)", "match_keys": ["gemini-3.5-flash-low", "gemini-3.5-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ 3.00M (5s) • 15.0M (Hafta)"},
+        # --- 🟣 ANTHROPIC (CLAUDE OPUS, SONNET, FABLE, HAIKU) ---
+        {"name": "Claude Opus 5.5 (Max)", "provider": "anthropic", "match_keys": ["claude-opus-5-5-max", "opus-5.5-max"], "tier": "premium", "is_free": False, "limit_5h": 200_000, "limit_weekly": 1_000_000, "quota_type": "💎 200K (5s) • 1.00M (Hafta)"},
+        {"name": "Claude Opus 5.5 (High)", "provider": "anthropic", "match_keys": ["claude-opus-5-5-high", "opus-5.5-high"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 250K (5s) • 1.25M (Hafta)"},
+        {"name": "Claude Opus 5.5 (Medium)", "provider": "anthropic", "match_keys": ["claude-opus-5-5-medium", "opus-5.5-medium", "claude-opus-5.5"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 250K (5s) • 1.25M (Hafta)"},
+        {"name": "Claude Opus 5.5 (Low)", "provider": "anthropic", "match_keys": ["claude-opus-5-5-low", "opus-5.5-low"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 300K (5s) • 1.50M (Hafta)"},
+        {"name": "Claude Opus 4.8", "provider": "anthropic", "match_keys": ["claude-opus-4-8", "claude-opus-4.8", "opus-4.8"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 300K (5s) • 1.50M (Hafta)"},
+        {"name": "Claude Opus 4.6", "provider": "anthropic", "match_keys": ["claude-opus-4-6", "claude-opus-4.6", "opus-4.6"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 300K (5s) • 1.50M (Hafta)"},
+        {"name": "Claude Opus 4.5", "provider": "anthropic", "match_keys": ["claude-opus-4-5", "claude-opus-4.5", "opus-4.5", "4.5-opus"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 300K (5s) • 1.50M (Hafta)"},
+        {"name": "Claude Sonnet 5.5 (Max)", "provider": "anthropic", "match_keys": ["claude-sonnet-5-5-max", "sonnet-5.5-max"], "tier": "premium", "is_free": False, "limit_5h": 350_000, "limit_weekly": 1_750_000, "quota_type": "💎 350K (5s) • 1.75M (Hafta)"},
+        {"name": "Claude Sonnet 5.5 (High)", "provider": "anthropic", "match_keys": ["claude-sonnet-5-5-high", "sonnet-5.5-high"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
+        {"name": "Claude Fable 5.1", "provider": "anthropic", "match_keys": ["fable-5.1", "fable", "claude-fable"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
+        {"name": "Claude Sonnet 4.6", "provider": "anthropic", "match_keys": ["claude-sonnet-4-6", "claude-sonnet-4.6", "sonnet-4.6", "claudecode", "claude-code"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
+        {"name": "Claude Sonnet 4.5", "provider": "anthropic", "match_keys": ["claude-sonnet-4-5", "claude-sonnet-4.5", "sonnet-4.5"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
+        {"name": "Claude Sonnet 4.0", "provider": "anthropic", "match_keys": ["claude-sonnet-4-0", "claude-sonnet-4.0", "sonnet-4.0"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
+        {"name": "Claude 3.5 Sonnet", "provider": "anthropic", "match_keys": ["claude-3-5-sonnet", "claude-3.5-sonnet", "3.5-sonnet"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
+        {"name": "Claude Sonnet 5.5 (Medium)", "provider": "anthropic", "match_keys": ["claude-sonnet-5-5-medium", "sonnet-5.5-medium", "claude-sonnet-5-5"], "tier": "premium", "is_free": False, "limit_5h": 450_000, "limit_weekly": 2_250_000, "quota_type": "💎 450K (5s) • 2.25M (Hafta)"},
+        {"name": "Claude Sonnet 5.5 (Low)", "provider": "anthropic", "match_keys": ["claude-sonnet-5-5-low", "sonnet-5.5-low"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 500K (5s) • 2.50M (Hafta)"},
+        {"name": "Claude Haiku 4.5", "provider": "anthropic", "match_keys": ["claude-haiku-4-5", "claude-haiku-4.5", "haiku-4.5"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ 1.50M (5s) • 7.50M (Hafta)"},
+        {"name": "Claude Haiku 3.5", "provider": "anthropic", "match_keys": ["claude-3-5-haiku", "claude-3.5-haiku", "haiku-3.5", "haiku"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ 1.50M (5s) • 7.50M (Hafta)"},
+
+        # --- 🟢 OPENAI (O3, O1, GPT-5, CODEX, GPT-4O, MINI, GPT-OSS) ---
+        {"name": "OpenAI o3 (High)", "provider": "openai", "match_keys": ["o3-high", "openai-o3-high"], "tier": "premium", "is_free": False, "limit_5h": 350_000, "limit_weekly": 1_750_000, "quota_type": "💎 350K (5s) • 1.75M (Hafta)"},
+        {"name": "OpenAI GPT-5 (High)", "provider": "openai", "match_keys": ["gpt-5-high", "openai-gpt-5-high"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
+        {"name": "OpenAI o3 (Medium)", "provider": "openai", "match_keys": ["o3-medium", "openai-o3-medium", "openai-o3"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
+        {"name": "OpenAI o1", "provider": "openai", "match_keys": ["o1-pro", "o1-preview", "openai-o1"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 400K (5s) • 2.00M (Hafta)"},
+        {"name": "OpenAI GPT-5 (Medium)", "provider": "openai", "match_keys": ["gpt-5-medium", "openai-gpt-5-medium", "openai-gpt-5"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 500K (5s) • 2.50M (Hafta)"},
+        {"name": "OpenAI GPT-4.5", "provider": "openai", "match_keys": ["gpt-4.5", "openai-gpt-4.5"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 500K (5s) • 2.50M (Hafta)"},
+        {"name": "OpenAI o3 (Low)", "provider": "openai", "match_keys": ["o3-low", "openai-o3-low"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 500K (5s) • 2.50M (Hafta)"},
+        {"name": "OpenAI GPT-5 (Low)", "provider": "openai", "match_keys": ["gpt-5-low", "openai-gpt-5-low"], "tier": "premium", "is_free": False, "limit_5h": 600_000, "limit_weekly": 3_000_000, "quota_type": "💎 600K (5s) • 3.00M (Hafta)"},
+        {"name": "OpenAI GPT-5.2 Codex", "provider": "openai", "match_keys": ["codex", "gpt-5.2", "openai-codex"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ 800K (5s) • 4.00M (Hafta)"},
+        {"name": "OpenAI GPT-4o", "provider": "openai", "match_keys": ["gpt-4o", "openai-gpt4o"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ 800K (5s) • 4.00M (Hafta)"},
+        {"name": "OpenAI o4-mini (High)", "provider": "openai", "match_keys": ["o4-mini-high"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ 1.00M (5s) • 5.00M (Hafta)"},
+        {"name": "OpenAI o3-mini (High)", "provider": "openai", "match_keys": ["o3-mini-high"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ 1.00M (5s) • 5.00M (Hafta)"},
+        {"name": "OpenAI GPT-OSS 120B (Medium)", "provider": "openai", "match_keys": ["gpt-oss-120b-medium", "gpt-oss-120b", "oss-120b"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ 1.00M (5s) • 5.00M (Hafta)"},
+        {"name": "OpenAI o4-mini (Medium)", "provider": "openai", "match_keys": ["o4-mini-medium", "o4-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "⚡ 1.20M (5s) • 6.00M (Hafta)"},
+        {"name": "OpenAI o3-mini (Medium)", "provider": "openai", "match_keys": ["o3-mini-medium", "o3-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "⚡ 1.20M (5s) • 6.00M (Hafta)"},
+        {"name": "OpenAI o4-mini (Low)", "provider": "openai", "match_keys": ["o4-mini-low"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ 1.50M (5s) • 7.50M (Hafta)"},
+        {"name": "OpenAI o3-mini (Low)", "provider": "openai", "match_keys": ["o3-mini-low"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ 1.50M (5s) • 7.50M (Hafta)"},
+        {"name": "OpenAI GPT-OSS 20B", "provider": "openai", "match_keys": ["gpt-oss-20b", "oss-20b"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ 1.50M (5s) • 7.50M (Hafta)"},
+        {"name": "OpenAI GPT-4o-mini", "provider": "openai", "match_keys": ["gpt-4o-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ 2.00M (5s) • 10.0M (Hafta)"},
+
+        # --- 🔵 GOOGLE (GEMINI ULTRA, PRO, ARGON, FLASH) ---
+        {"name": "Gemini 3.1 Ultra", "provider": "google", "match_keys": ["gemini-3.1-ultra", "3.1-ultra"], "tier": "premium", "is_free": False, "limit_5h": 600_000, "limit_weekly": 3_000_000, "quota_type": "💎 600K (5s) • 3.00M (Hafta)"},
+        {"name": "Gemini 3.1 Pro (High)", "provider": "google", "match_keys": ["gemini-3.1-pro-high", "3.1-pro-high"], "tier": "premium", "is_free": False, "limit_5h": 900_000, "limit_weekly": 4_500_000, "quota_type": "💎 900K (5s) • 4.50M (Hafta)"},
+        {"name": "Gemini 3.1 Pro (Medium)", "provider": "google", "match_keys": ["gemini-3.1-pro-medium", "gemini-3.1-pro", "3.1-pro", "gemini-pro"], "tier": "premium", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "💎 1.00M (5s) • 5.00M (Hafta)"},
+        {"name": "Gemini 4 Argon (High)", "provider": "google", "match_keys": ["gemini-4-argon-high", "argon-high"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 1.20M (5s) • 6.00M (Hafta)"},
+        {"name": "Gemini 3.1 Pro (Low)", "provider": "google", "match_keys": ["gemini-3.1-pro-low", "3.1-pro-low"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 1.20M (5s) • 6.00M (Hafta)"},
+        {"name": "Gemini 2.5 Pro", "provider": "google", "match_keys": ["gemini-2.5-pro", "2.5-pro"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 1.20M (5s) • 6.00M (Hafta)"},
+        {"name": "Gemini 4 Argon (Medium)", "provider": "google", "match_keys": ["gemini-4-argon-medium", "gemini-4-argon-trial", "gemini-4-argon", "argon"], "tier": "premium", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "💎 1.50M (5s) • 7.50M (Hafta)"},
+        {"name": "Gemini 4 Argon (Low)", "provider": "google", "match_keys": ["gemini-4-argon-low", "argon-low"], "tier": "premium", "is_free": False, "limit_5h": 1_800_000, "limit_weekly": 9_000_000, "quota_type": "💎 1.80M (5s) • 9.00M (Hafta)"},
+        {"name": "Gemini 3.8 Flash (High)", "provider": "google", "match_keys": ["gemini-3.8-flash-high", "3.8-flash-high"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ 2.00M (5s) • 10.0M (Hafta)"},
+        {"name": "Gemini 3.7 Flash (High)", "provider": "google", "match_keys": ["gemini-3.7-flash-high", "3.7-flash-high"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ 2.00M (5s) • 10.0M (Hafta)"},
+        {"name": "Gemini 3.8 Flash (Medium)", "provider": "google", "match_keys": ["gemini-3.8-flash-medium", "gemini-3.8-flash-tiered", "gemini-3.8-flash", "3.8-flash", "flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ 2.50M (5s) • 12.5M (Hafta)"},
+        {"name": "Gemini 3.7 Flash (Medium)", "provider": "google", "match_keys": ["gemini-3.7-flash-medium", "gemini-3.7-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ 2.50M (5s) • 12.5M (Hafta)"},
+        {"name": "Gemini 3.6 Flash (Medium)", "provider": "google", "match_keys": ["gemini-3.6-flash-medium", "gemini-3.6-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ 2.50M (5s) • 12.5M (Hafta)"},
+        {"name": "Gemini 3.5 Flash (High)", "provider": "google", "match_keys": ["gemini-3.5-flash-high", "3.5-flash-high"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ 2.50M (5s) • 12.5M (Hafta)"},
+        {"name": "Gemini 2.5 Flash", "provider": "google", "match_keys": ["gemini-2.5-flash", "2.5-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ 2.50M (5s) • 12.5M (Hafta)"},
+        {"name": "Gemini 3.8 Flash (Low)", "provider": "google", "match_keys": ["gemini-3.8-flash-low", "3.8-flash-low"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ 3.00M (5s) • 15.0M (Hafta)"},
+        {"name": "Gemini 3.7 Flash (Low)", "provider": "google", "match_keys": ["gemini-3.7-flash-low", "3.7-flash-low"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ 3.00M (5s) • 15.0M (Hafta)"},
+        {"name": "Gemini 3.6 Flash (Low)", "provider": "google", "match_keys": ["gemini-3.6-flash-low", "3.6-flash-low"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ 3.00M (5s) • 15.0M (Hafta)"},
+        {"name": "Gemini 3.5 Flash (Low)", "provider": "google", "match_keys": ["gemini-3.5-flash-low", "gemini-3.5-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ 3.00M (5s) • 15.0M (Hafta)"},
     ]
 
-    # 2. Ücretsiz & Yerel (0 TL) Modeller (Tek tek alt alta, en çok kullanılandan aşağıya dinamik sıralanır, %100'ü aşabilir 🔥)
+    # 2. Ücretsiz & Yerel (0 TL) Modeller (🌐 Açık Kaynak, Yerel GPU & Ücretsiz Sağlayıcılar)
     FREE_REFERENCE_MODELS = [
-        {"name": "Gemini 3.5 Flash-Lite", "match_keys": ["3.5-flash-lite", "flash_lite", "flash-lite"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Hafif İşçi)"},
-        {"name": "Gemini 3.1 Flash-Lite", "match_keys": ["3.1-flash-lite"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Hafif İşçi)"},
-        {"name": "OpenCode Big-Pickle", "match_keys": ["opencode", "big-pickle"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (OpenCode)"},
-        {"name": "Hermes 3 Nous 405B", "match_keys": ["hermes", "nous-405b", "nous"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Hermes)"},
-        {"name": "Hermes 3 Nous 70B", "match_keys": ["nous-70b", "hermes-70b"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Hermes)"},
-        {"name": "Llama 3 8B (Yerel RTX 5070 Ti)", "match_keys": ["llama3", "llama-3", "yerelollama", "ollama"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Yerel GPU)"},
-        {"name": "Qwen 2.5 Coder 14B (Yerel RTX 5070 Ti)", "match_keys": ["qwen-14b", "qwen2.5-coder:14b", "qwen-coder"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Yerel GPU)"},
-        {"name": "DeepSeek R1 14B (Yerel RTX 5070 Ti)", "match_keys": ["deepseek-r1:14b", "deepseek-local"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Yerel GPU)"},
-        {"name": "NVIDIA Llama 3.1 Nemotron 70B:free", "match_keys": ["nvidia", "nemotron", "nim"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (NVIDIA NIM)"},
-        {"name": "NVIDIA DeepSeek R1:free", "match_keys": ["nvidia-deepseek", "nim-deepseek"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (NVIDIA NIM)"},
-        {"name": "HuggingFace Qwen 2.5 Coder 32B:free", "match_keys": ["huggingface", "hf-qwen", "hf"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (HuggingFace)"},
-        {"name": "HuggingFace Zephyr 7B Beta:free", "match_keys": ["zephyr", "hf-zephyr"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (HuggingFace)"},
-        {"name": "OpenRouter Qwen 2.5 Coder 32B:free", "match_keys": ["openrouterfree", "openrouter", ":free"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (OpenRouter Free)"},
-        {"name": "OpenRouter DeepSeek V3:free", "match_keys": ["deepseek-v3:free", "openrouter-deepseek"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (OpenRouter Free)"},
+        {"name": "Gemini 3.5 Flash-Lite", "provider": "google", "match_keys": ["3.5-flash-lite", "flash_lite", "flash-lite"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Hafif İşçi)"},
+        {"name": "Gemini 3.1 Flash-Lite", "provider": "google", "match_keys": ["3.1-flash-lite"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Hafif İşçi)"},
+        {"name": "OpenCode Big-Pickle", "provider": "opensource", "match_keys": ["opencode", "big-pickle"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (OpenCode)"},
+        {"name": "Hermes 3 Nous 405B", "provider": "opensource", "match_keys": ["hermes", "nous-405b", "nous"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Hermes)"},
+        {"name": "Hermes 3 Nous 70B", "provider": "opensource", "match_keys": ["nous-70b", "hermes-70b"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Hermes)"},
+        {"name": "Llama 3 8B (Yerel RTX 5070 Ti)", "provider": "opensource", "match_keys": ["llama3", "llama-3", "yerelollama", "ollama"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Yerel GPU)"},
+        {"name": "Qwen 2.5 Coder 14B (Yerel RTX 5070 Ti)", "provider": "opensource", "match_keys": ["qwen-14b", "qwen2.5-coder:14b", "qwen-coder"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Yerel GPU)"},
+        {"name": "DeepSeek R1 14B (Yerel RTX 5070 Ti)", "provider": "opensource", "match_keys": ["deepseek-r1:14b", "deepseek-local"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (Yerel GPU)"},
+        {"name": "NVIDIA Llama 3.1 Nemotron 70B:free", "provider": "opensource", "match_keys": ["nvidia", "nemotron", "nim"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (NVIDIA NIM)"},
+        {"name": "NVIDIA DeepSeek R1:free", "provider": "opensource", "match_keys": ["nvidia-deepseek", "nim-deepseek"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (NVIDIA NIM)"},
+        {"name": "HuggingFace Qwen 2.5 Coder 32B:free", "provider": "opensource", "match_keys": ["huggingface", "hf-qwen", "hf"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (HuggingFace)"},
+        {"name": "HuggingFace Zephyr 7B Beta:free", "provider": "opensource", "match_keys": ["zephyr", "hf-zephyr"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (HuggingFace)"},
+        {"name": "OpenRouter Qwen 2.5 Coder 32B:free", "provider": "opensource", "match_keys": ["openrouterfree", "openrouter", ":free"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (OpenRouter Free)"},
+        {"name": "OpenRouter DeepSeek V3:free", "provider": "opensource", "match_keys": ["deepseek-v3:free", "openrouter-deepseek"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL (OpenRouter Free)"},
     ]
 
     def __init__(
@@ -728,6 +735,7 @@ class UsageTracker:
                 "count": 0,
                 "tokens": 0,
                 "tier": spec["tier"],
+                "provider": spec.get("provider", "opensource"),
                 "is_free": spec["is_free"],
                 "limit_5h": spec.get("limit_5h", REF_FREE_LIMIT_5H),
                 "limit_weekly": spec.get("limit_weekly", REF_FREE_LIMIT_WEEKLY),
@@ -767,6 +775,7 @@ class UsageTracker:
                         "count": 0,
                         "tokens": 0,
                         "tier": "free",
+                        "provider": "opensource",
                         "is_free": True,
                         "limit_5h": REF_FREE_LIMIT_5H,
                         "limit_weekly": REF_FREE_LIMIT_WEEKLY,
@@ -776,6 +785,38 @@ class UsageTracker:
                 data[raw_name]["tokens"] += tok
 
         return data
+
+    def _aggregate_provider_tokens(self, m_data: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        """Modellerin toplam tokenlarını sağlayıcı / firma (Google, Anthropic, OpenAI, Açık Kaynak) bazında toplar."""
+        res = {
+            p_key: {
+                "tokens": 0,
+                "count": 0,
+                "limit_5h": p_info["default_limit_5h"],
+                "limit_w": p_info["default_limit_w"],
+                "name": p_info["name"],
+                "label": p_info["label"],
+                "color": p_info["color"],
+                "is_free": (p_key == "opensource"),
+            }
+            for p_key, p_info in self.PROVIDERS.items()
+        }
+        all_specs = self.PAID_REFERENCE_MODELS + self.FREE_REFERENCE_MODELS
+        spec_map = {s["name"]: s for s in all_specs}
+
+        for m_name, info in m_data.items():
+            tok = info.get("tokens", 0)
+            cnt = info.get("count", 0)
+            if tok <= 0:
+                continue
+            spec = spec_map.get(m_name, {})
+            p_key = spec.get("provider", "opensource")
+            if p_key not in res:
+                p_key = "opensource"
+            res[p_key]["tokens"] += tok
+            res[p_key]["count"] += cnt
+
+        return res
 
     def _resolve_model_spec(self, raw_model: str) -> Dict[str, Any]:
         """Verilen ham model/araç adını referans model tanımına (spec) eşler."""
@@ -795,8 +836,11 @@ class UsageTracker:
             if any(k in m_low for k in s["match_keys"]):
                 return s
 
+        prov = "google" if "gemini" in m_low or "argon" in m_low else ("anthropic" if "claude" in m_low or "sonnet" in m_low or "opus" in m_low or "haiku" in m_low else ("openai" if "gpt" in m_low or "o3" in m_low or "o1" in m_low or "codex" in m_low else "opensource"))
+
         return {
             "name": raw_model or "Gemini 3.8 Flash (Medium)",
+            "provider": prov,
             "tier": "free",
             "is_free": True,
             "limit_5h": REF_FREE_LIMIT_5H,
@@ -815,6 +859,7 @@ class UsageTracker:
                 data[key] = {
                     "agent_name": agent_label,
                     "model_name": m_name,
+                    "provider": model_spec.get("provider", "opensource"),
                     "tier": model_spec["tier"],
                     "is_free": model_spec["is_free"],
                     "limit_5h": model_spec.get("limit_5h", REF_FREE_LIMIT_5H),
@@ -955,9 +1000,10 @@ class UsageTracker:
     def format_all_in_one_markdown(self, include_antigravity: bool = True) -> str:
         """
         Kullanıcı '/usage' dediğinde TEK SEFERDE:
-        - Ücretli modelleri sabit standart sırada (Opus, Fable, Sonnet, Argon, Codex, GPT-OSS, Flash)
+        - Sağlayıcı / Firma bazlı gruplanmış (Anthropic, OpenAI, Google, Açık Kaynak / Yerel)
+        - Ücretli modelleri kendi firması içinde en ağır kotadan aşağıya doğru sıralı
         - Ücretsiz modelleri en çok kullanılandan aşağıya doğru dinamik sıralı (%100'ü geçebilen 🔥)
-        - 5 Saatlik ve Haftalık karşılaştırmalı grafik panosu üretir.
+        - Göz karmaşasından arındırılmış, 3 sütunlu net ve görsel grafik panosu üretir.
         """
         report = self.get_report(include_antigravity=include_antigravity)
         audit = self.audit_paid_api_risks()
@@ -984,7 +1030,7 @@ class UsageTracker:
         md.append("---")
         md.append("")
 
-        # 1. BÖLÜM: KATMAN ÖZETİ (Sadece 3 Sütun)
+        # 1. BÖLÜM: KATMAN & FİRMA ÖZETİ
         tok_free_5h = h5.get("tokens_free", 0)
         tok_low_5h = h5.get("tokens_low_quota", 0)
         tok_prem_5h = h5.get("tokens_premium", 0)
@@ -1009,6 +1055,35 @@ class UsageTracker:
         md.append(f"| ⚡ Düşük Kota İşçi (Flash / Codex) | `{bar_low_5h}` | `{bar_low_w}` |")
         md.append(f"| 🟢 Ücretsiz / Yerel (0 TL) | `{bar_free_5h}` | `{bar_free_w}` |")
         md.append("")
+
+        # FİRMA / SAĞLAYICI GENEL KOTA TABLOSU (Kullanıcının talep ettiği firma ayrışımı)
+        m_data_5h = self._aggregate_model_tokens(h5.get("_raw_events", []))
+        m_data_w = self._aggregate_model_tokens(w.get("_raw_events", []))
+
+        prov_5h = self._aggregate_provider_tokens(m_data_5h)
+        prov_w = self._aggregate_provider_tokens(m_data_w)
+
+        md.append("#### 🏢 Sağlayıcı & Firma Kotası Özeti")
+        md.append("| Firma / Ekosistem | 5 Saatlik Doluluk | Haftalık Doluluk |")
+        md.append("| :--- | :--- | :--- |")
+
+        for p_key in ["anthropic", "openai", "google", "opensource"]:
+            p_5h = prov_5h.get(p_key, {})
+            p_w = prov_w.get(p_key, {})
+
+            p_tok_5h = p_5h.get("tokens", 0)
+            p_tok_w = p_w.get("tokens", 0)
+            p_lim_5h = p_5h.get("limit_5h", REF_FREE_LIMIT_5H)
+            p_lim_w = p_w.get("limit_w", REF_FREE_LIMIT_WEEKLY)
+            p_is_free = p_5h.get("is_free", False)
+
+            p_bar_5h = render_model_quota_bar(p_tok_5h, p_lim_5h, is_free=p_is_free)
+            p_bar_w = render_model_quota_bar(p_tok_w, p_lim_w, is_free=p_is_free)
+            p_label = p_5h.get("label", p_key)
+
+            md.append(f"| {p_label} | `{p_bar_5h}` | `{p_bar_w}` |")
+
+        md.append("")
         ratio_val = h5.get("free_and_worker_ratio", 0.0)
         saved_val = h5.get("estimated_saved_usd", 0.0)
         md.append(f"> 🛡️ **Kota Koruma Oranı:** %{ratio_val:.1f} | 💰 **Tahmini Tasarruf:** ${saved_val:.2f}")
@@ -1016,13 +1091,8 @@ class UsageTracker:
         md.append("---")
         md.append("")
 
-        # 2. BÖLÜM: MODELLER VE EFORLAR (Sadece 3 Sütun: Model ve Efor | 5 Saatlik | Haftalık)
-        md.append("### 🤖 2. MODELLER VE EFORLAR")
-        md.append("| Model ve Efor (Katman) | 5 Saatlik Doluluk | Haftalık Doluluk |")
-        md.append("| :--- | :--- | :--- |")
-
-        m_data_5h = self._aggregate_model_tokens(h5.get("_raw_events", []))
-        m_data_w = self._aggregate_model_tokens(w.get("_raw_events", []))
+        # 2. BÖLÜM: MODELLER VE EFORLAR (FİRMA BAZINDA DÜZENLENMİŞ, SADE 3 SÜTUNLU TABLOLAR)
+        md.append("### 🤖 2. MODELLER VE EFORLAR (SAĞLAYICI BAZLI)")
 
         def get_tier_icon(tier: str) -> str:
             if tier == "free":
@@ -1031,52 +1101,75 @@ class UsageTracker:
                 return "⚡"
             return "💎"
 
-        # 1. Kısım: Ücretli modeller en ağır kota/token harcayandan aşağıya sabit sırada
-        for spec in self.PAID_REFERENCE_MODELS:
-            m_name = spec["name"]
-            info_5h = m_data_5h.get(m_name, {})
-            info_w = m_data_w.get(m_name, {})
+        # 4 Firma Grubu: Anthropic, OpenAI, Google, Açık Kaynak
+        provider_groups = [
+            ("anthropic", "🟣 Anthropic (Claude Ailesi)"),
+            ("openai", "🟢 OpenAI Ailesi"),
+            ("google", "🔵 Google (Gemini Ailesi)"),
+            ("opensource", "🌐 Açık Kaynak & Yerel GPU (0 TL Ücretsiz Motorlar)"),
+        ]
 
-            tok_5h = info_5h.get("tokens", 0)
-            tok_w = info_w.get("tokens", 0)
+        for p_key, p_title in provider_groups:
+            md.append(f"#### {p_title}")
+            md.append("| Model ve Efor (Katman) | 5 Saatlik Doluluk | Haftalık Doluluk |")
+            md.append("| :--- | :--- | :--- |")
 
-            lim_5h = spec["limit_5h"]
-            lim_w = spec["limit_weekly"]
+            if p_key == "opensource":
+                # Açık kaynak / 0 TL modelleri en çok kullanılandan en aza dinamik sıralı
+                group_models = [m for m in self.FREE_REFERENCE_MODELS if m.get("provider") == "opensource"]
+                group_models_sorted = sorted(
+                    group_models,
+                    key=lambda s: m_data_w.get(s["name"], {}).get("tokens", 0),
+                    reverse=True,
+                )
+                for spec in group_models_sorted:
+                    m_name = spec["name"]
+                    tok_5h = m_data_5h.get(m_name, {}).get("tokens", 0)
+                    tok_w = m_data_w.get(m_name, {}).get("tokens", 0)
+                    lim_5h = spec.get("limit_5h", REF_FREE_LIMIT_5H)
+                    lim_w = spec.get("limit_weekly", REF_FREE_LIMIT_WEEKLY)
 
-            bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=False)
-            bar_w = render_model_quota_bar(tok_w, lim_w, is_free=False)
-            icon = get_tier_icon(spec["tier"])
+                    bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=True)
+                    bar_w = render_model_quota_bar(tok_w, lim_w, is_free=True)
+                    md.append(f"| 🟢 `{m_name} (0 TL)` | `{bar_5h}` | `{bar_w}` |")
+            else:
+                # Ücretli modeller en ağır kotadan aşağıya sabit sıralı
+                paid_in_group = [m for m in self.PAID_REFERENCE_MODELS if m.get("provider") == p_key]
+                # Eğer Google grubundaysa Flash-Lite modellerini de ekle
+                if p_key == "google":
+                    free_in_google = [m for m in self.FREE_REFERENCE_MODELS if m.get("provider") == "google"]
+                else:
+                    free_in_google = []
 
-            md.append(f"| {icon} `{m_name}` | `{bar_5h}` | `{bar_w}` |")
+                for spec in paid_in_group:
+                    m_name = spec["name"]
+                    tok_5h = m_data_5h.get(m_name, {}).get("tokens", 0)
+                    tok_w = m_data_w.get(m_name, {}).get("tokens", 0)
+                    lim_5h = spec["limit_5h"]
+                    lim_w = spec["limit_weekly"]
 
-        # 2. Kısım: Ücretsiz modeller en çok kullanılandan en aza doğru sıralı
-        sorted_free = sorted(
-            self.FREE_REFERENCE_MODELS,
-            key=lambda spec: m_data_w.get(spec["name"], {}).get("tokens", 0),
-            reverse=True,
-        )
+                    bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=False)
+                    bar_w = render_model_quota_bar(tok_w, lim_w, is_free=False)
+                    icon = get_tier_icon(spec["tier"])
+                    md.append(f"| {icon} `{m_name}` | `{bar_5h}` | `{bar_w}` |")
 
-        for spec in sorted_free:
-            m_name = spec["name"]
-            info_5h = m_data_5h.get(m_name, {})
-            info_w = m_data_w.get(m_name, {})
+                for spec in free_in_google:
+                    m_name = spec["name"]
+                    tok_5h = m_data_5h.get(m_name, {}).get("tokens", 0)
+                    tok_w = m_data_w.get(m_name, {}).get("tokens", 0)
+                    lim_5h = spec.get("limit_5h", REF_FREE_LIMIT_5H)
+                    lim_w = spec.get("limit_weekly", REF_FREE_LIMIT_WEEKLY)
 
-            tok_5h = info_5h.get("tokens", 0)
-            tok_w = info_w.get("tokens", 0)
+                    bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=True)
+                    bar_w = render_model_quota_bar(tok_w, lim_w, is_free=True)
+                    md.append(f"| 🟢 `{m_name} (0 TL)` | `{bar_5h}` | `{bar_w}` |")
 
-            lim_5h = spec.get("limit_5h", REF_FREE_LIMIT_5H)
-            lim_w = spec.get("limit_weekly", REF_FREE_LIMIT_WEEKLY)
+            md.append("")
 
-            bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=True)
-            bar_w = render_model_quota_bar(tok_w, lim_w, is_free=True)
-
-            md.append(f"| 🟢 `{m_name} (0 TL)` | `{bar_5h}` | `{bar_w}` |")
-
-        md.append("")
         md.append("---")
         md.append("")
 
-        # 3. BÖLÜM: CLI ARAÇLARI (Sadece 3 Sütun: CLI Aracı | 5 Saatlik | Haftalık)
+        # 3. BÖLÜM: CLI ARAÇLARI
         md.append("### 🛠️ 3. CLI ARAÇLARI")
         md.append("| CLI Aracı (Katman) | 5 Saatlik Doluluk | Haftalık Doluluk |")
         md.append("| :--- | :--- | :--- |")
@@ -1097,16 +1190,28 @@ class UsageTracker:
             c_lower = c_name.lower()
             if "antigravity" in c_lower:
                 lim_5h, lim_w, is_free = 1_500_000, 7_500_000, False
-                label = "💎 `Antigravity (agy.exe)`"
+                label = "💎 `Antigravity (agy.exe)` • 🔵 Google"
             elif "claude" in c_lower:
                 lim_5h, lim_w, is_free = 400_000, 2_000_000, False
-                label = "💎 `ClaudeCode`"
+                label = "💎 `ClaudeCode` • 🟣 Anthropic"
             elif "codex" in c_lower:
                 lim_5h, lim_w, is_free = 800_000, 4_000_000, False
-                label = "⚡ `Codex`"
+                label = "⚡ `Codex` • 🟢 OpenAI"
+            elif "ollama" in c_lower:
+                lim_5h, lim_w, is_free = REF_FREE_LIMIT_5H, REF_FREE_LIMIT_WEEKLY, True
+                label = "🟢 `YerelOllama (0 TL)` • 🖥️ RTX 5070 Ti"
+            elif "opencode" in c_lower:
+                lim_5h, lim_w, is_free = REF_FREE_LIMIT_5H, REF_FREE_LIMIT_WEEKLY, True
+                label = "🟢 `OpenCode (0 TL)` • 🌐 Açık Kaynak"
+            elif "hermes" in c_lower:
+                lim_5h, lim_w, is_free = REF_FREE_LIMIT_5H, REF_FREE_LIMIT_WEEKLY, True
+                label = "🟢 `Hermes (0 TL)` • 🌐 Açık Kaynak"
+            elif "testrunner" in c_lower:
+                lim_5h, lim_w, is_free = REF_FREE_LIMIT_5H, REF_FREE_LIMIT_WEEKLY, True
+                label = "🟢 `TestRunner (0 TL)` • 💻 Python Test"
             else:
                 lim_5h, lim_w, is_free = REF_FREE_LIMIT_5H, REF_FREE_LIMIT_WEEKLY, True
-                label = f"🟢 `{c_name} (0 TL)`"
+                label = f"🟢 `{c_name} (0 TL)` • ⚡ Yerel Motor"
 
             bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=is_free)
             bar_w = render_model_quota_bar(tok_w, lim_w, is_free=is_free)
@@ -1117,9 +1222,9 @@ class UsageTracker:
         md.append("---")
         md.append("")
 
-        # 4. BÖLÜM: AJANLAR VE KULLANDIKLARI MODELLER (Sadece 4 Sütun: Ajan | Model ve Efor | 5 Saatlik | Haftalık)
+        # 4. BÖLÜM: AJANLAR VE KULLANDIKLARI MODELLER
         md.append("### 🕵️ 4. AJANLAR VE KULLANDIKLARI MODELLER")
-        md.append("| Ajan Rolü | Kullandığı Model ve Efor | 5 Saatlik Doluluk | Haftalık Doluluk |")
+        md.append("| Ajan Rolü | Sağlayıcı ve Model | 5 Saatlik Doluluk | Haftalık Doluluk |")
         md.append("| :--- | :--- | :--- | :--- |")
 
         ag_5h_tokens = self._aggregate_agent_tokens(h5.get("_raw_events", []))
@@ -1140,6 +1245,7 @@ class UsageTracker:
                 ag_name = meta.get("agent_name", k)
                 m_name = meta.get("model_name", "Gemini 3.8 Flash (Medium)")
                 tier = meta.get("tier", "free")
+                provider = meta.get("provider", "opensource")
                 is_free = meta.get("is_free", True)
                 lim_5h = meta.get("limit_5h", REF_FREE_LIMIT_5H)
                 lim_w = meta.get("limit_weekly", REF_FREE_LIMIT_WEEKLY)
@@ -1148,7 +1254,10 @@ class UsageTracker:
                 tok_w = entry_w.get("tokens", 0)
 
                 icon = get_tier_icon(tier)
-                m_label = f"{icon} `{m_name} (0 TL)`" if is_free else f"{icon} `{m_name}`"
+                p_info = self.PROVIDERS.get(provider, {"color": "🌐", "name": "Açık Kaynak"})
+                p_icon = p_info.get("color", "🌐")
+
+                m_label = f"{icon} {p_icon} `{m_name} (0 TL)`" if is_free else f"{icon} {p_icon} `{m_name}`"
                 bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=is_free)
                 bar_w = render_model_quota_bar(tok_w, lim_w, is_free=is_free)
                 md.append(f"| {ag_name} | {m_label} | `{bar_5h}` | `{bar_w}` |")
@@ -1160,3 +1269,4 @@ class UsageTracker:
         md.append("🎯 **4K AI WORKSTATION:** Sistem 7/24 yerel ve bulut kaynaklarınızı optimize ederek bütçenizi ve kotanızı korur.")
 
         return "\n".join(md)
+
