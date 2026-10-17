@@ -19,12 +19,12 @@ except:
 # Main Chat Interface
 st.subheader("Command Center")
 user_prompt = st.text_area("Enter your prompt:", placeholder="Example: Optimize this Python function...")
-selected_model = st.selectbox("Select Model:", ["Ollama"]) # This will be dynamic later
+is_parallel = st.checkbox("Parallel Execution (Split Task)", value=False)
+selected_model = st.selectbox("Select Model:", ["auto", "Ollama"])
 
 if st.button("Execute"):
-if st.button("Execute"):
     if user_prompt:
-        with st.spinner(f"Executing..."):
+        with st.spinner("Executing..."):
             try:
                 payload = {"prompt": user_prompt, "model": selected_model, "parallel": is_parallel}
                 response = requests.post(
