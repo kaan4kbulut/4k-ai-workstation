@@ -1,7 +1,5 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import asyncio
-from typing import List, Dict, Any
 from core.dispatcher import Dispatcher
 from wrappers.ollama_wrapper import OllamaWrapper
 from core.router import IntelligentRouter
@@ -19,18 +17,26 @@ executor = ParallelExecutor(dispatcher, router)
 # Register default wrappers
 dispatcher.register_wrapper("Ollama", OllamaWrapper())
 
+
 class QueryRequest(BaseModel):
     prompt: str
     model: str = "auto"
     parallel: bool = False
 
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 @app.get("/status")
 async def get_status():
     return {
-        "status": "online", 
+        "status": "online",
         "registered_models": list(dispatcher.wrappers.keys()),
-        "quotas": quota_manager.get_quota_status()
+        "quotas": quota_manager.get_quota_status(),
     }
+
 
 @app.post("/query")
 async def query_model(request: QueryRequest):
@@ -39,37 +45,41 @@ async def query_model(request: QueryRequest):
         if request.parallel:
             sub_tasks = await planner.decompose(request.prompt)
             results = await executor.run_parallel(sub_tasks)
-            
-            # Consume quotas for all models used in parallel
-            # Note: In a real version, executor would return which models were used
-            # For now, we simulate it by using a dummy consumption or tracking via executor
-            for task_id, response in results.items():
-                # We can't easily track which model was used per task here without modifying executor
-                # For the prototype, we assume the router's selection logic ran
-                # We'll add a simpler quota consume for the main prompt
-                quota_manager.consume_quota("Ollama") # Default for prototype
-            
+
+            # Charge each model that actually handled a sub-task.
+            for result in results.values():
+                quota_manager.consume_quota(result["model"])
+
             return {
                 "type": "parallel",
                 "sub_tasks_count": len(sub_tasks),
                 "responses": results,
-                "auto_routed": True
+                "auto_routed": True,
             }
 
         # Standard Single-Model Flow
         model_to_use = request.model
         if model_to_use == "auto":
-            model_to_use = await router.select_best_model(request.prompt)
-        
+            model_to_use = await router.select_best_model(
+                request.prompt, list(dispatcher.wrappers.keys())
+            )
+
         if model_to_use not in dispatcher.wrappers:
             model_to_use = list(dispatcher.wrappers.keys())[0] if dispatcher.wrappers else "Ollama"
-            
+
         quota_manager.consume_quota(model_to_use)
         result = await dispatcher.dispatch(model_to_use, request.prompt)
-        return {"type": "single", "model": model_to_use, "response": result, "auto_routed": True if request.model == "auto" else False}
+        return {
+            "type": "single",
+            "model": model_to_use,
+            "response": result,
+            "auto_routed": request.model == "auto",
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

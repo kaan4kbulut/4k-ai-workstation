@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Iterable
 from dataclasses import dataclass
 from core.quota_manager import QuotaManager
 
@@ -27,20 +27,33 @@ class IntelligentRouter:
             return 6
         return 3
 
-    async def select_best_model(self, prompt: str) -> str:
+    async def select_best_model(self, prompt: str, available_names: Iterable[str] | None = None) -> str:
+        """Pick the cheapest model that is capable enough and has quota left.
+
+        `available_names` limits the choice to models that actually have a
+        registered wrapper. Without it the router could pick a model that no
+        wrapper implements, and the request would fail at dispatch time.
+        """
         complexity = await self.triage_task(prompt)
-        
-        # Filter models that meet complexity AND have quota
+
+        allowed = set(self.tiers) if available_names is None else set(available_names)
+
+        # Filter models that meet complexity AND have quota AND are wired up
         eligible_models = [
-            name for name, tier in self.tiers.items() 
-            if tier.capability_score >= complexity and self.quota_manager.has_quota(name)
+            name for name, tier in self.tiers.items()
+            if name in allowed
+            and tier.capability_score >= complexity
+            and self.quota_manager.has_quota(name)
         ]
         
         if not eligible_models:
-            # Fallback: Get any model that has quota, regardless of complexity
-            available_models = [name for name in self.tiers if self.quota_manager.has_quota(name)]
+            # Fallback: any usable model with quota, regardless of complexity
+            available_models = [
+                name for name in self.tiers
+                if name in allowed and self.quota_manager.has_quota(name)
+            ]
             if available_models:
-                return available_models[0]
+                return sorted(available_models, key=lambda x: -self.tiers[x].capability_score)[0]
             return "Ollama" # Absolute fallback
 
         sorted_models = sorted(
