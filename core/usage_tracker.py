@@ -83,50 +83,85 @@ class UsageTracker:
     görsel ve finansal tasarruf raporlarına dönüştüren analitik motoru.
     """
 
-    # 1. Sabit Standart Sırada TÜM Ücretli & Kotalı Referans Alt Modelleri (Claude + OpenAI + Google)
+    # 1. Sabit Standart Sırada TÜM Ücretli & Kotalı Referans Alt Modelleri (Her model ve efor seviyesi tek tek alt alta!)
     PAID_REFERENCE_MODELS = [
-        # --- ANTHROPIC CLAUDE TÜM MODELLER ---
-        {"name": "Claude Opus 5.5 High (claude-opus-5-5-high)", "match_keys": ["claude-opus-5-5-high", "opus-5.5-high"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 Claude Opus 5.5 High (250K / 1.25M)"},
-        {"name": "Claude Opus 5.5 Medium (claude-opus-5-5-medium)", "match_keys": ["claude-opus-5-5-medium", "opus-5.5", "claude-opus-5.5"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 Claude Opus 5.5 Med (250K / 1.25M)"},
-        {"name": "Claude Opus 5.5 Low (claude-opus-5-5-low)", "match_keys": ["claude-opus-5-5-low", "opus-5.5-low"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 Claude Opus 5.5 Low (300K / 1.5M)"},
-        {"name": "Claude Opus 4.8 / 4.6 / 4.5 (claude-opus-4)", "match_keys": ["claude-opus-4", "opus-4", "4.5-opus"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 Claude Opus 4.x (300K / 1.5M)"},
-        {"name": "Claude Sonnet 5.5 Max / High (claude-sonnet-5-5-high)", "match_keys": ["claude-sonnet-5-5-max", "claude-sonnet-5-5-high", "sonnet-5.5-high"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Sonnet 5.5 High (400K / 2.0M)"},
-        {"name": "Claude Sonnet 5.5 Medium / Low (claude-sonnet-5-5)", "match_keys": ["claude-sonnet-5-5-medium", "claude-sonnet-5-5-low", "claude-sonnet-5-5"], "tier": "premium", "is_free": False, "limit_5h": 450_000, "limit_weekly": 2_250_000, "quota_type": "💎 Claude Sonnet 5.5 Med (450K / 2.25M)"},
-        {"name": "Claude Fable 5.1 (claude-fable-5.1)", "match_keys": ["fable-5.1", "fable", "claude-fable"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Fable 5.1 (400K / 2.0M)"},
-        {"name": "Claude Sonnet 4.6 / 4.5 / CLI (claude-code-cli)", "match_keys": ["claudecode", "claude-code", "claude-sonnet-4", "claude-3.5-sonnet", "sonnet"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Sonnet 4.x / CLI (400K / 2.0M)"},
-        {"name": "Claude Haiku 4.5 / 3.5 (claude-haiku)", "match_keys": ["haiku", "claude-haiku", "claude-3-5-haiku"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ Claude Haiku (1.5M / 7.5M)"},
-        # --- OPENAI TÜM MODELLER ---
-        {"name": "OpenAI GPT-5 / GPT-4.5 (openai-gpt-5)", "match_keys": ["gpt-5 ", "gpt-4.5", "openai-gpt-5"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 OpenAI GPT-5 / 4.5 (500K / 2.5M)"},
-        {"name": "OpenAI o3 / o1 Reasoning (openai-o3)", "match_keys": ["openai-o3", "o3-high", "o1-pro", "o1-preview"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 OpenAI o3 / o1 (400K / 2.0M)"},
-        {"name": "OpenAI o3-mini / o4-mini (openai-o3-mini)", "match_keys": ["o3-mini", "o4-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "⚡ OpenAI o3-mini (1.2M / 6.0M)"},
-        {"name": "OpenAI GPT-5.2 Codex CLI (openai-codex)", "match_keys": ["codex", "gpt-5.2", "openai-codex"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ OpenAI Codex CLI (800K / 4.0M)"},
-        {"name": "OpenAI GPT-4o (openai-gpt-4o)", "match_keys": ["gpt-4o", "openai-gpt4o"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ OpenAI GPT-4o (800K / 4.0M)"},
-        {"name": "OpenAI GPT-4o-mini (openai-gpt-4o-mini)", "match_keys": ["gpt-4o-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ OpenAI GPT-4o-mini (2.0M / 10.0M)"},
-        {"name": "OpenAI GPT-OSS 120B / 20B (gpt-oss-120b)", "match_keys": ["gpt-oss", "oss-120b", "oss-20b"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ OpenAI GPT-OSS 120B (1.0M / 5.0M)"},
-        # --- GOOGLE GEMINI TÜM MODELLER ---
-        {"name": "Gemini 4 Argon High (gemini-4-argon-high)", "match_keys": ["gemini-4-argon-high", "argon-high"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 Gemini 4 Argon High (1.2M / 6.0M)"},
-        {"name": "Gemini 4 Argon Medium (gemini-4-argon-medium)", "match_keys": ["gemini-4-argon-medium", "gemini-4-argon-trial", "gemini-4-argon", "argon"], "tier": "premium", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "💎 Gemini 4 Argon Med (1.5M / 7.5M)"},
-        {"name": "Gemini 4 Argon Low (gemini-4-argon-low)", "match_keys": ["gemini-4-argon-low", "argon-low"], "tier": "premium", "is_free": False, "limit_5h": 1_800_000, "limit_weekly": 9_000_000, "quota_type": "💎 Gemini 4 Argon Low (1.8M / 9.0M)"},
-        {"name": "Gemini 3.1 Ultra (gemini-3.1-ultra)", "match_keys": ["gemini-3.1-ultra", "3.1-ultra"], "tier": "premium", "is_free": False, "limit_5h": 600_000, "limit_weekly": 3_000_000, "quota_type": "💎 Gemini 3.1 Ultra (600K / 3.0M)"},
-        {"name": "Gemini 3.1 Pro High / Low (gemini-3.1-pro)", "match_keys": ["gemini-3.1-pro", "3.1-pro", "gemini-pro"], "tier": "premium", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "💎 Gemini 3.1 Pro (1.0M / 5.0M)"},
-        {"name": "Gemini 2.5 Pro (gemini-2.5-pro)", "match_keys": ["gemini-2.5-pro", "2.5-pro"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 Gemini 2.5 Pro (1.2M / 6.0M)"},
-        {"name": "Gemini 3.8 Flash High (gemini-3.8-flash-high)", "match_keys": ["gemini-3.8-flash-high", "3.8-flash-high"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ Gemini 3.8 Flash High (2.0M / 10.0M)"},
-        {"name": "Gemini 3.8 Flash Medium / Tiered (gemini-3.8-flash)", "match_keys": ["gemini-3.8-flash-medium", "gemini-3.8-flash-tiered", "gemini-3.8-flash", "3.8-flash", "flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ Gemini 3.8 Flash Med (2.5M / 12.5M)"},
-        {"name": "Gemini 3.8 Flash Low (gemini-3.8-flash-low)", "match_keys": ["gemini-3.8-flash-low", "3.8-flash-low"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ Gemini 3.8 Flash Low (3.0M / 15.0M)"},
-        {"name": "Gemini 3.7 / 3.6 / 3.5 / 2.5 Flash (gemini-flash)", "match_keys": ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ Gemini 3.7/3.6/2.5 Flash (2.5M / 12.5M)"},
+        # --- ANTHROPIC CLAUDE MODELLERİ (Efor Seviyeleriyle Tek Tek Alt Alta) ---
+        {"name": "Claude Opus 5.5 (Max)", "match_keys": ["claude-opus-5-5-max", "opus-5.5-max"], "tier": "premium", "is_free": False, "limit_5h": 200_000, "limit_weekly": 1_000_000, "quota_type": "💎 Claude Opus 5.5 Max (200K / 1.0M)"},
+        {"name": "Claude Opus 5.5 (High)", "match_keys": ["claude-opus-5-5-high", "opus-5.5-high"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 Claude Opus 5.5 High (250K / 1.25M)"},
+        {"name": "Claude Opus 5.5 (Medium)", "match_keys": ["claude-opus-5-5-medium", "opus-5.5-medium", "claude-opus-5.5"], "tier": "premium", "is_free": False, "limit_5h": 250_000, "limit_weekly": 1_250_000, "quota_type": "💎 Claude Opus 5.5 Med (250K / 1.25M)"},
+        {"name": "Claude Opus 5.5 (Low)", "match_keys": ["claude-opus-5-5-low", "opus-5.5-low"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 Claude Opus 5.5 Low (300K / 1.5M)"},
+        {"name": "Claude Opus 4.8", "match_keys": ["claude-opus-4-8", "claude-opus-4.8", "opus-4.8"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 Claude Opus 4.8 (300K / 1.5M)"},
+        {"name": "Claude Opus 4.6", "match_keys": ["claude-opus-4-6", "claude-opus-4.6", "opus-4.6"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 Claude Opus 4.6 (300K / 1.5M)"},
+        {"name": "Claude Opus 4.5", "match_keys": ["claude-opus-4-5", "claude-opus-4.5", "opus-4.5", "4.5-opus"], "tier": "premium", "is_free": False, "limit_5h": 300_000, "limit_weekly": 1_500_000, "quota_type": "💎 Claude Opus 4.5 (300K / 1.5M)"},
+        {"name": "Claude Sonnet 5.5 (Max)", "match_keys": ["claude-sonnet-5-5-max", "sonnet-5.5-max"], "tier": "premium", "is_free": False, "limit_5h": 350_000, "limit_weekly": 1_750_000, "quota_type": "💎 Claude Sonnet 5.5 Max (350K / 1.75M)"},
+        {"name": "Claude Sonnet 5.5 (High)", "match_keys": ["claude-sonnet-5-5-high", "sonnet-5.5-high"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Sonnet 5.5 High (400K / 2.0M)"},
+        {"name": "Claude Sonnet 5.5 (Medium)", "match_keys": ["claude-sonnet-5-5-medium", "sonnet-5.5-medium", "claude-sonnet-5-5"], "tier": "premium", "is_free": False, "limit_5h": 450_000, "limit_weekly": 2_250_000, "quota_type": "💎 Claude Sonnet 5.5 Med (450K / 2.25M)"},
+        {"name": "Claude Sonnet 5.5 (Low)", "match_keys": ["claude-sonnet-5-5-low", "sonnet-5.5-low"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 Claude Sonnet 5.5 Low (500K / 2.5M)"},
+        {"name": "Claude Fable 5.1", "match_keys": ["fable-5.1", "fable", "claude-fable"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Fable 5.1 (400K / 2.0M)"},
+        {"name": "Claude Sonnet 4.6", "match_keys": ["claude-sonnet-4-6", "claude-sonnet-4.6", "sonnet-4.6", "claudecode", "claude-code"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Sonnet 4.6 (400K / 2.0M)"},
+        {"name": "Claude Sonnet 4.5", "match_keys": ["claude-sonnet-4-5", "claude-sonnet-4.5", "sonnet-4.5"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Sonnet 4.5 (400K / 2.0M)"},
+        {"name": "Claude Sonnet 4.0", "match_keys": ["claude-sonnet-4-0", "claude-sonnet-4.0", "sonnet-4.0"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude Sonnet 4.0 (400K / 2.0M)"},
+        {"name": "Claude 3.5 Sonnet", "match_keys": ["claude-3-5-sonnet", "claude-3.5-sonnet", "3.5-sonnet"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 Claude 3.5 Sonnet (400K / 2.0M)"},
+        {"name": "Claude Haiku 4.5", "match_keys": ["claude-haiku-4-5", "claude-haiku-4.5", "haiku-4.5"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ Claude Haiku 4.5 (1.5M / 7.5M)"},
+        {"name": "Claude Haiku 3.5", "match_keys": ["claude-3-5-haiku", "claude-3.5-haiku", "haiku-3.5", "haiku"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ Claude Haiku 3.5 (1.5M / 7.5M)"},
+        # --- OPENAI MODELLERİ (Efor Seviyeleriyle Tek Tek Alt Alta) ---
+        {"name": "OpenAI GPT-5 (High)", "match_keys": ["gpt-5-high", "openai-gpt-5-high"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 OpenAI GPT-5 High (400K / 2.0M)"},
+        {"name": "OpenAI GPT-5 (Medium)", "match_keys": ["gpt-5-medium", "openai-gpt-5-medium", "openai-gpt-5"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 OpenAI GPT-5 Med (500K / 2.5M)"},
+        {"name": "OpenAI GPT-5 (Low)", "match_keys": ["gpt-5-low", "openai-gpt-5-low"], "tier": "premium", "is_free": False, "limit_5h": 600_000, "limit_weekly": 3_000_000, "quota_type": "💎 OpenAI GPT-5 Low (600K / 3.0M)"},
+        {"name": "OpenAI GPT-5.2 Codex", "match_keys": ["codex", "gpt-5.2", "openai-codex"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ OpenAI GPT-5.2 Codex (800K / 4.0M)"},
+        {"name": "OpenAI GPT-4.5", "match_keys": ["gpt-4.5", "openai-gpt-4.5"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 OpenAI GPT-4.5 (500K / 2.5M)"},
+        {"name": "OpenAI o3 (High)", "match_keys": ["o3-high", "openai-o3-high"], "tier": "premium", "is_free": False, "limit_5h": 350_000, "limit_weekly": 1_750_000, "quota_type": "💎 OpenAI o3 High (350K / 1.75M)"},
+        {"name": "OpenAI o3 (Medium)", "match_keys": ["o3-medium", "openai-o3-medium", "openai-o3"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 OpenAI o3 Med (400K / 2.0M)"},
+        {"name": "OpenAI o3 (Low)", "match_keys": ["o3-low", "openai-o3-low"], "tier": "premium", "is_free": False, "limit_5h": 500_000, "limit_weekly": 2_500_000, "quota_type": "💎 OpenAI o3 Low (500K / 2.5M)"},
+        {"name": "OpenAI o4-mini (High)", "match_keys": ["o4-mini-high"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ OpenAI o4-mini High (1.0M / 5.0M)"},
+        {"name": "OpenAI o4-mini (Medium)", "match_keys": ["o4-mini-medium", "o4-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "⚡ OpenAI o4-mini Med (1.2M / 6.0M)"},
+        {"name": "OpenAI o4-mini (Low)", "match_keys": ["o4-mini-low"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ OpenAI o4-mini Low (1.5M / 7.5M)"},
+        {"name": "OpenAI o3-mini (High)", "match_keys": ["o3-mini-high"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ OpenAI o3-mini High (1.0M / 5.0M)"},
+        {"name": "OpenAI o3-mini (Medium)", "match_keys": ["o3-mini-medium", "o3-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "⚡ OpenAI o3-mini Med (1.2M / 6.0M)"},
+        {"name": "OpenAI o3-mini (Low)", "match_keys": ["o3-mini-low"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ OpenAI o3-mini Low (1.5M / 7.5M)"},
+        {"name": "OpenAI o1", "match_keys": ["o1-pro", "o1-preview", "openai-o1"], "tier": "premium", "is_free": False, "limit_5h": 400_000, "limit_weekly": 2_000_000, "quota_type": "💎 OpenAI o1 (400K / 2.0M)"},
+        {"name": "OpenAI GPT-4o", "match_keys": ["gpt-4o", "openai-gpt4o"], "tier": "low_quota", "is_free": False, "limit_5h": 800_000, "limit_weekly": 4_000_000, "quota_type": "⚡ OpenAI GPT-4o (800K / 4.0M)"},
+        {"name": "OpenAI GPT-4o-mini", "match_keys": ["gpt-4o-mini"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ OpenAI GPT-4o-mini (2.0M / 10.0M)"},
+        {"name": "OpenAI GPT-OSS 120B (Medium)", "match_keys": ["gpt-oss-120b-medium", "gpt-oss-120b", "oss-120b"], "tier": "low_quota", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "⚡ OpenAI GPT-OSS 120B Med (1.0M / 5.0M)"},
+        {"name": "OpenAI GPT-OSS 20B", "match_keys": ["gpt-oss-20b", "oss-20b"], "tier": "low_quota", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "⚡ OpenAI GPT-OSS 20B (1.5M / 7.5M)"},
+        # --- GOOGLE GEMINI MODELLERİ (Efor Seviyeleriyle Tek Tek Alt Alta) ---
+        {"name": "Gemini 4 Argon (High)", "match_keys": ["gemini-4-argon-high", "argon-high"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 Gemini 4 Argon High (1.2M / 6.0M)"},
+        {"name": "Gemini 4 Argon (Medium)", "match_keys": ["gemini-4-argon-medium", "gemini-4-argon-trial", "gemini-4-argon", "argon"], "tier": "premium", "is_free": False, "limit_5h": 1_500_000, "limit_weekly": 7_500_000, "quota_type": "💎 Gemini 4 Argon Med (1.5M / 7.5M)"},
+        {"name": "Gemini 4 Argon (Low)", "match_keys": ["gemini-4-argon-low", "argon-low"], "tier": "premium", "is_free": False, "limit_5h": 1_800_000, "limit_weekly": 9_000_000, "quota_type": "💎 Gemini 4 Argon Low (1.8M / 9.0M)"},
+        {"name": "Gemini 3.1 Ultra", "match_keys": ["gemini-3.1-ultra", "3.1-ultra"], "tier": "premium", "is_free": False, "limit_5h": 600_000, "limit_weekly": 3_000_000, "quota_type": "💎 Gemini 3.1 Ultra (600K / 3.0M)"},
+        {"name": "Gemini 3.1 Pro (High)", "match_keys": ["gemini-3.1-pro-high", "3.1-pro-high"], "tier": "premium", "is_free": False, "limit_5h": 900_000, "limit_weekly": 4_500_000, "quota_type": "💎 Gemini 3.1 Pro High (900K / 4.5M)"},
+        {"name": "Gemini 3.1 Pro (Medium)", "match_keys": ["gemini-3.1-pro-medium", "gemini-3.1-pro", "3.1-pro", "gemini-pro"], "tier": "premium", "is_free": False, "limit_5h": 1_000_000, "limit_weekly": 5_000_000, "quota_type": "💎 Gemini 3.1 Pro Med (1.0M / 5.0M)"},
+        {"name": "Gemini 3.1 Pro (Low)", "match_keys": ["gemini-3.1-pro-low", "3.1-pro-low"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 Gemini 3.1 Pro Low (1.2M / 6.0M)"},
+        {"name": "Gemini 2.5 Pro", "match_keys": ["gemini-2.5-pro", "2.5-pro"], "tier": "premium", "is_free": False, "limit_5h": 1_200_000, "limit_weekly": 6_000_000, "quota_type": "💎 Gemini 2.5 Pro (1.2M / 6.0M)"},
+        {"name": "Gemini 3.8 Flash (High)", "match_keys": ["gemini-3.8-flash-high", "3.8-flash-high"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ Gemini 3.8 Flash High (2.0M / 10.0M)"},
+        {"name": "Gemini 3.8 Flash (Medium)", "match_keys": ["gemini-3.8-flash-medium", "gemini-3.8-flash-tiered", "gemini-3.8-flash", "3.8-flash", "flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ Gemini 3.8 Flash Med (2.5M / 12.5M)"},
+        {"name": "Gemini 3.8 Flash (Low)", "match_keys": ["gemini-3.8-flash-low", "3.8-flash-low"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ Gemini 3.8 Flash Low (3.0M / 15.0M)"},
+        {"name": "Gemini 3.7 Flash (High)", "match_keys": ["gemini-3.7-flash-high", "3.7-flash-high"], "tier": "low_quota", "is_free": False, "limit_5h": 2_000_000, "limit_weekly": 10_000_000, "quota_type": "⚡ Gemini 3.7 Flash High (2.0M / 10.0M)"},
+        {"name": "Gemini 3.7 Flash (Medium)", "match_keys": ["gemini-3.7-flash-medium", "gemini-3.7-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ Gemini 3.7 Flash Med (2.5M / 12.5M)"},
+        {"name": "Gemini 3.7 Flash (Low)", "match_keys": ["gemini-3.7-flash-low", "3.7-flash-low"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ Gemini 3.7 Flash Low (3.0M / 15.0M)"},
+        {"name": "Gemini 3.6 Flash (Medium)", "match_keys": ["gemini-3.6-flash-medium", "gemini-3.6-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ Gemini 3.6 Flash Med (2.5M / 12.5M)"},
+        {"name": "Gemini 3.6 Flash (Low)", "match_keys": ["gemini-3.6-flash-low", "3.6-flash-low"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ Gemini 3.6 Flash Low (3.0M / 15.0M)"},
+        {"name": "Gemini 3.5 Flash (High)", "match_keys": ["gemini-3.5-flash-high", "3.5-flash-high"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ Gemini 3.5 Flash High (2.5M / 12.5M)"},
+        {"name": "Gemini 3.5 Flash (Low)", "match_keys": ["gemini-3.5-flash-low", "gemini-3.5-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 3_000_000, "limit_weekly": 15_000_000, "quota_type": "⚡ Gemini 3.5 Flash Low (3.0M / 15.0M)"},
+        {"name": "Gemini 2.5 Flash", "match_keys": ["gemini-2.5-flash", "2.5-flash"], "tier": "low_quota", "is_free": False, "limit_5h": 2_500_000, "limit_weekly": 12_500_000, "quota_type": "⚡ Gemini 2.5 Flash (2.5M / 12.5M)"},
     ]
 
-    # 2. Ücretsiz & Yerel (0 TL) Modeller (En çok kullanılandan aşağıya dinamik sıralanır, %100'ü aşabilir 🔥)
+    # 2. Ücretsiz & Yerel (0 TL) Modeller (Tek tek alt alta, en çok kullanılandan aşağıya dinamik sıralanır, %100'ü aşabilir 🔥)
     FREE_REFERENCE_MODELS = [
-        {"name": "Gemini 3.5 Flash-Lite / 3.1 Lite (gemini-3.5-flash-lite)", "match_keys": ["3.5-flash-lite", "3.1-flash-lite", "flash_lite", "flash-lite"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hafif İşçi"},
-        {"name": "OpenCode Big-Pickle (opencode-free)", "match_keys": ["opencode", "big-pickle"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / OpenCode"},
-        {"name": "Hermes 3 Nous 70B/405B (hermes-agent)", "match_keys": ["hermes", "nous"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hermes"},
+        {"name": "Gemini 3.5 Flash-Lite", "match_keys": ["3.5-flash-lite", "flash_lite", "flash-lite"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hafif İşçi"},
+        {"name": "Gemini 3.1 Flash-Lite", "match_keys": ["3.1-flash-lite"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hafif İşçi"},
+        {"name": "OpenCode Big-Pickle", "match_keys": ["opencode", "big-pickle"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / OpenCode"},
+        {"name": "Hermes 3 Nous 405B", "match_keys": ["hermes", "nous-405b", "nous"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hermes"},
+        {"name": "Hermes 3 Nous 70B", "match_keys": ["nous-70b", "hermes-70b"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Hermes"},
         {"name": "Llama 3 8B (Yerel RTX 5070 Ti)", "match_keys": ["llama3", "llama-3", "yerelollama", "ollama"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Yerel GPU"},
         {"name": "Qwen 2.5 Coder 14B (Yerel RTX 5070 Ti)", "match_keys": ["qwen-14b", "qwen2.5-coder:14b", "qwen-coder"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Yerel GPU"},
         {"name": "DeepSeek R1 14B (Yerel RTX 5070 Ti)", "match_keys": ["deepseek-r1:14b", "deepseek-local"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / Yerel GPU"},
-        {"name": "NVIDIA Nemotron 70B / DeepSeek R1 (NVIDIA NIM 0 TL)", "match_keys": ["nvidia", "nemotron", "nim"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / NVIDIA NIM"},
-        {"name": "HuggingFace Qwen 2.5 Coder 32B / Zephyr (HF Router 0 TL)", "match_keys": ["huggingface", "hf", "zephyr"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / HuggingFace"},
-        {"name": "OpenRouter Qwen 2.5 Coder 32B:free (OpenRouter 0 TL)", "match_keys": ["openrouterfree", "openrouter", ":free"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / OpenRouter Free"},
+        {"name": "NVIDIA Llama 3.1 Nemotron 70B:free", "match_keys": ["nvidia", "nemotron", "nim"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / NVIDIA NIM"},
+        {"name": "NVIDIA DeepSeek R1:free", "match_keys": ["nvidia-deepseek", "nim-deepseek"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / NVIDIA NIM"},
+        {"name": "HuggingFace Qwen 2.5 Coder 32B:free", "match_keys": ["huggingface", "hf-qwen", "hf"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / HuggingFace"},
+        {"name": "HuggingFace Zephyr 7B Beta:free", "match_keys": ["zephyr", "hf-zephyr"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / HuggingFace"},
+        {"name": "OpenRouter Qwen 2.5 Coder 32B:free", "match_keys": ["openrouterfree", "openrouter", ":free"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / OpenRouter Free"},
+        {"name": "OpenRouter DeepSeek V3:free", "match_keys": ["deepseek-v3:free", "openrouter-deepseek"], "tier": "free", "is_free": True, "limit_5h": REF_FREE_LIMIT_5H, "limit_weekly": REF_FREE_LIMIT_WEEKLY, "quota_type": "🟢 0 TL / OpenRouter Free"},
     ]
 
     def __init__(
@@ -703,9 +738,13 @@ class UsageTracker:
 
             # Özel eşleştirme kuralları (Önce Flash-Lite ki 'flash' ile karışmasın)
             matched = False
-            if "lite" in name:
-                data["Gemini 3.5 Flash-Lite / 3.1 Lite (gemini-3.5-flash-lite)"]["count"] += 1
-                data["Gemini 3.5 Flash-Lite / 3.1 Lite (gemini-3.5-flash-lite)"]["tokens"] += tok
+            if "3.1-flash-lite" in name:
+                data["Gemini 3.1 Flash-Lite"]["count"] += 1
+                data["Gemini 3.1 Flash-Lite"]["tokens"] += tok
+                continue
+            elif "lite" in name:
+                data["Gemini 3.5 Flash-Lite"]["count"] += 1
+                data["Gemini 3.5 Flash-Lite"]["tokens"] += tok
                 continue
 
             # Tüm tanımlı alt modeller üzerinden sırayla eşleştir
@@ -748,16 +787,29 @@ class UsageTracker:
         return data
 
     def _aggregate_cli_tokens(self, raw_events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-        """CLI olaylarını toplar ve tokenlarını hesaplar."""
+        """CLI olaylarını toplar ve Antigravity ile 4KWorkstation CLI kullanımlarını da hesaplar."""
         data: Dict[str, Dict[str, Any]] = {}
         for ev in raw_events:
-            if ev.get("category") == "cli":
+            cat = ev.get("category")
+            src = ev.get("source", "")
+            tok = ev.get("tokens_est", 0) or 7000
+
+            if cat == "cli":
                 name = ev.get("name", "")
-                tok = ev.get("tokens_est", 0) or 7000
                 if name not in data:
                     data[name] = {"count": 0, "tokens": 0}
                 data[name]["count"] += 1
                 data[name]["tokens"] += tok
+            if src == "antigravity_db":
+                if "Antigravity" not in data:
+                    data["Antigravity"] = {"count": 0, "tokens": 0}
+                data["Antigravity"]["count"] += 1
+                data["Antigravity"]["tokens"] += tok
+            if src == "workstation":
+                if "4KWorkstation" not in data:
+                    data["4KWorkstation"] = {"count": 0, "tokens": 0}
+                data["4KWorkstation"]["count"] += 1
+                data["4KWorkstation"]["tokens"] += tok
         return data
 
     def audit_paid_api_risks(self, providers_path: str = "config/providers.json") -> Dict[str, Any]:
@@ -962,8 +1014,8 @@ class UsageTracker:
         cli_5h_tokens = self._aggregate_cli_tokens(h5.get("_raw_events", []))
         cli_w_tokens = self._aggregate_cli_tokens(w.get("_raw_events", []))
 
-        paid_clis = ["ClaudeCode", "Codex"]
-        free_clis = ["TestRunner", "OpenCode", "Hermes", "YerelOllama"]
+        paid_clis = ["Antigravity", "ClaudeCode", "Codex"]
+        free_clis = ["4KWorkstation", "TestRunner", "OpenCode", "Hermes", "YerelOllama"]
 
         # Ücretsizleri haftalık token kullanımına göre azalan sırala
         sorted_free_clis = sorted(free_clis, key=lambda c: cli_w_tokens.get(c, {}).get("tokens", 0), reverse=True)
@@ -974,7 +1026,11 @@ class UsageTracker:
             tok_w = cli_w_tokens.get(c_name, {}).get("tokens", 0)
 
             c_lower = c_name.lower()
-            if "claude" in c_lower:
+            if "antigravity" in c_lower:
+                lim_5h, lim_w, is_free = 1_500_000, 7_500_000, False
+                quota_str = "💎 Antigravity (1.5M / 7.5M)"
+                note = "💎 Google Antigravity CLI (agy.exe)"
+            elif "claude" in c_lower:
                 lim_5h, lim_w, is_free = 400_000, 2_000_000, False
                 quota_str = "💎 Claude (400K / 2M)"
                 note = "💎 Anthropic Claude CLI"
@@ -985,7 +1041,9 @@ class UsageTracker:
             else:
                 lim_5h, lim_w, is_free = REF_FREE_LIMIT_5H, REF_FREE_LIMIT_WEEKLY, True
                 quota_str = "🟢 0 TL (Claude 400K Ref)"
-                if "yerelollama" in c_lower or "ollama" in c_lower:
+                if "4kworkstation" in c_lower:
+                    note = "🟢 4K AI Workstation Terminal CLI (0 TL)"
+                elif "yerelollama" in c_lower or "ollama" in c_lower:
                     note = "🟢 Yerel RTX 5070 Ti 12GB (0 TL)"
                 elif "test" in c_lower or "runner" in c_lower:
                     note = "🟢 Yerel Test Motoru (0 TL)"
