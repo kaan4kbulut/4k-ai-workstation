@@ -1,47 +1,48 @@
 # 🚀 Nexus AI Studio
 
-An Intelligent AI Orchestrator and Model Gateway. Manages multiple LLM providers
-(cloud & local), routes tasks based on complexity, tracks quotas, and executes
-sub-tasks in parallel.
+Akıllı bir **AI orkestratörü ve model geçidi**. Birden fazla LLM sağlayıcısını
+(yerel ve bulut) yönetir; görevleri karmaşıklığına göre yönlendirir, kotaları
+takip eder ve alt görevleri paralel çalıştırır.
 
-> **Status:** working MVP. FastAPI backend + Streamlit dashboard + Ollama wrapper
-> are verified end-to-end. Claude/Codex tiers are declared but have no wrapper yet.
+> **Durum:** çalışan MVP. FastAPI arka ucu + Streamlit paneli + Ollama ve Hermes
+> wrapper'ları uçtan uca doğrulandı. `Claude`/`Codex` katmanları tanımlı ama
+> henüz wrapper'ları yok.
 
-## 📁 Project Structure
-- `/core`: The brain of the system.
-    - `dispatcher.py`: Sends prompts to registered model wrappers (single or parallel).
-    - `router.py`: Picks the best model for a prompt (complexity + cost + quota).
-    - `quota_manager.py`: Tracks usage limits per model in `data/quotas.json`.
-    - `planner.py`: Decomposes a complex prompt into smaller sub-tasks.
-    - `parallel_executor.py`: Runs sub-tasks concurrently via `asyncio.gather`.
+## 📁 Proje Yapısı
+- `/core`: Sistemin beyni.
+    - `dispatcher.py`: İstekleri kayıtlı model wrapper'larına gönderir (tekli veya paralel).
+    - `router.py`: Bir istek için en uygun modeli seçer (karmaşıklık + maliyet + kota).
+    - `quota_manager.py`: Model başına kullanım limitlerini `data/quotas.json`'da tutar.
+    - `planner.py`: Karmaşık bir isteği daha küçük alt görevlere böler.
+    - `parallel_executor.py`: Alt görevleri `asyncio.gather` ile eşzamanlı çalıştırır.
 - `/ui`
-    - `server.py`: FastAPI backend (`/health`, `/status`, `/query`).
-    - `app.py`: Streamlit dashboard.
+    - `server.py`: FastAPI arka ucu (`/health`, `/status`, `/query`).
+    - `app.py`: Streamlit kontrol paneli.
 - `/wrappers`
-    - `base_wrapper.py`: Abstract base class for all wrappers.
-    - `ollama_wrapper.py`: Local models via the Ollama HTTP API.
-    - `hermes_wrapper.py`: The Hermes agent CLI, run headless (one-shot).
-- `/tests`: Unit tests (no network or LLM required).
-- `/data`: Persistent quota state (git-ignored).
+    - `base_wrapper.py`: Tüm wrapper'lar için soyut temel sınıf.
+    - `ollama_wrapper.py`: Ollama HTTP API'si üzerinden yerel modeller.
+    - `hermes_wrapper.py`: Hermes ajan CLI'ı (headless, tek seferlik).
+- `/tests`: Birim testleri (ağ veya LLM gerektirmez).
+- `/data`: Kalıcı kota durumu (git tarafından yok sayılır).
 
-## 🛠️ Installation
+## 🛠️ Kurulum
 
-Requires **Python 3.12+** (3.14 tested). If it is missing:
+**Python 3.12+** gerekir (3.14 ile test edildi). Kurulu değilse:
 
 ```powershell
 winget install --scope user Python.Python.3.14
 ```
 
-Then create the virtual environment and install dependencies — one command:
+Ardından sanal ortamı oluşturup bağımlılıkları kur — tek komut:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup.ps1
 ```
 
-This creates `.venv`, installs `requirements.txt`, and runs the test suite.
+Bu komut `.venv` oluşturur, `requirements.txt`'i kurar ve testleri çalıştırır.
 
 <details>
-<summary>Manual setup (equivalent)</summary>
+<summary>Elle kurulum (eşdeğeri)</summary>
 
 ```powershell
 python -m venv .venv
@@ -49,107 +50,107 @@ python -m venv .venv
 ```
 </details>
 
-## ▶️ Running
+## ▶️ Çalıştırma
 
-One command starts both the backend and the dashboard:
+Tek komut hem arka ucu hem paneli başlatır:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\run.ps1
 ```
 
-Then open http://localhost:8501. Press Ctrl+C to stop both.
+Sonra http://localhost:8501 adresini aç. İkisini durdurmak için Ctrl+C.
 
 <details>
-<summary>Running the two services manually</summary>
+<summary>İki servisi elle çalıştırma</summary>
 
-**Terminal 1 — backend**
+**Terminal 1 — arka uç**
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn ui.server:app --host 127.0.0.1 --port 8000
 ```
 
-**Terminal 2 — dashboard**
+**Terminal 2 — panel**
 ```powershell
 .\.venv\Scripts\python.exe -m streamlit run ui/app.py
 ```
 </details>
 
-## 🔧 Configuration (environment variables)
+## 🔧 Yapılandırma (ortam değişkenleri)
 
-| Variable | Default | Meaning |
+| Değişken | Varsayılan | Anlamı |
 | --- | --- | --- |
-| `OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama server URL |
-| `OLLAMA_MODEL` | `llama3` | Model used by the Ollama wrapper |
-| `OLLAMA_TIMEOUT` | `120` | Per-request timeout in seconds |
-| `HERMES_BIN` | auto-detected | Path to the `hermes` executable |
-| `HERMES_MODEL` | (Hermes default) | Optional model override for Hermes |
-| `HERMES_TIMEOUT` | `300` | Hermes subprocess timeout (s) |
-| `HERMES_MAX_TURNS` | `6` | Hermes agent turn budget |
-| `HERMES_RUN_BUDGET` | `180` | Hermes wall-clock budget (s) |
+| `OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama sunucu adresi |
+| `OLLAMA_MODEL` | `llama3` | Ollama wrapper'ının kullandığı model |
+| `OLLAMA_TIMEOUT` | `120` | İstek başına zaman aşımı (saniye) |
+| `HERMES_BIN` | otomatik bulunur | `hermes` çalıştırılabilir dosyasının yolu |
+| `HERMES_MODEL` | (Hermes varsayılanı) | Hermes için isteğe bağlı model |
+| `HERMES_TIMEOUT` | `300` | Hermes alt süreç zaman aşımı (sn) |
+| `HERMES_MAX_TURNS` | `6` | Hermes ajan tur bütçesi |
+| `HERMES_RUN_BUDGET` | `180` | Hermes toplam süre bütçesi (sn) |
 
-The Ollama wrapper needs the model to be installed locally:
+Ollama wrapper'ı için modelin yerelde kurulu olması gerekir:
 
 ```bash
 ollama pull llama3
 ```
 
-### Hermes integration
+### Hermes entegrasyonu
 
-Hermes is registered automatically when its CLI is found (`HERMES_BIN`, `PATH`,
-or `%LOCALAPPDATA%\hermes\bin\hermes.exe`). Each request runs:
+Hermes CLI'ı bulunduğunda (`HERMES_BIN`, `PATH` veya
+`%LOCALAPPDATA%\hermes\bin\hermes.exe`) otomatik kaydedilir. Her istek şunu çalıştırır:
 
 ```
 hermes chat --query-file - -Q --max-turns N --run-budget S
 ```
 
-The prompt goes in over stdin (`--query-file -`), so it is never
-shell-interpreted. `-Q` yields the plain final response on stdout; the
-`session_id` arrives on stderr. `--yolo` is intentionally never passed, so
-Hermes keeps its approval prompts instead of acting unattended.
+İstek, stdin üzerinden verilir (`--query-file -`), böylece shell tarafından
+yorumlanmaz. `-Q` ile stdout'a yalnızca düz final yanıt gelir; `session_id`
+bilgisi stderr'e düşer. `--yolo` bilinçli olarak asla kullanılmaz; böylece
+Hermes gözetimsiz/geri dönüşsüz işlem yapmak yerine onay sorar.
 
-## 🧪 Tests
+## 🧪 Testler
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Tests run offline — no LLM or network access required.
+Testler çevrimdışı çalışır — LLM veya ağ erişimi gerekmez.
 
 ## 📡 API
 
-| Method | Path | Description |
+| Yöntem | Yol | Açıklama |
 | --- | --- | --- |
-| GET | `/health` | Liveness probe |
-| GET | `/status` | Registered models + quota snapshot |
+| GET | `/health` | Servis ayakta mı (canlılık kontrolü) |
+| GET | `/status` | Kayıtlı modeller + kota özeti |
 | POST | `/query` | `{prompt, model: "auto"\|"Ollama"\|"Hermes", parallel: bool}` |
 
-Example:
+Örnek:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/query ^
   -H "Content-Type: application/json" ^
-  -d "{\"prompt\": \"Say hi\", \"model\": \"auto\", \"parallel\": false}"
+  -d "{\"prompt\": \"Merhaba de\", \"model\": \"auto\", \"parallel\": false}"
 ```
 
-## 📈 Current Status
+## 📈 Mevcut Durum
 
-- [x] **Core Infrastructure:** modular wrapper system + dispatcher
-- [x] **Intelligent Routing:** triage + capability/cost-based selection
-- [x] **Quota Management:** persistent usage tracking + auto-fallback
-- [x] **UI Prototype:** working dashboard + API bridge
-- [x] **Parallelism:** task decomposition + async execution
-- [x] **CLI agent wrapper:** Hermes (headless one-shot via `hermes chat -Q`)
-- [ ] **Cloud/CLI wrappers:** Claude Code, Codex, Antigravity
+- [x] **Çekirdek altyapı:** modüler wrapper sistemi + dispatcher
+- [x] **Akıllı yönlendirme:** triage + yetenek/maliyet bazlı seçim
+- [x] **Kota yönetimi:** kalıcı kullanım takibi + otomatik geri düşme
+- [x] **Panel:** çalışan Streamlit arayüzü + API köprüsü
+- [x] **Paralellik:** görev bölme + eşzamanlı çalıştırma
+- [x] **CLI ajan wrapper'ı:** Hermes (headless, tek seferlik)
+- [ ] **Bulut/CLI wrapper'ları:** Claude Code, Codex, Antigravity
+- [ ] **Cihaz benchmark'ı / model önerisi**
+- [ ] **Librarian** (model keşfi ve puanlama) ve **Tech Scout** (kendini güncelleme)
 
-> CLI agent wrappers simply shell out to the tool and capture stdout — any agent
-> with a non-interactive mode (e.g. `hermes -z "prompt"`) can be plugged in.
-> Providers exposing an OpenAI-compatible endpoint (e.g. `hermes proxy`) can
-> reuse a shared client wrapper.
-- [ ] **Device benchmark / model recommendation**
-- [ ] **Librarian** (model discovery & scoring) and **Tech Scout** (self-evolution)
+> CLI ajan wrapper'ları yalnızca aracı çalıştırıp stdout'u okur — etkileşimsiz
+> modu olan her ajan (ör. `hermes chat -q "..." -Q`) takılabilir. OpenAI uyumlu
+> uç nokta sunan sağlayıcılar (`hermes proxy` gibi) ortak bir istemci
+> wrapper'ını yeniden kullanabilir.
 
-## ⏭️ Next Steps
+## ⏭️ Sonraki Adımlar
 
-1. Add real wrappers for cloud providers and CLI agents.
-2. Add device benchmarking to recommend the best local model.
-3. Build the `Librarian` agent for automatic model discovery and scoring.
-4. Implement the `Tech Scout` for self-evolution and auto-updating.
+1. Bulut sağlayıcıları ve CLI ajanları için gerçek wrapper'lar ekle.
+2. En uygun yerel modeli önermek için cihaz benchmark'ı ekle.
+3. Otomatik model keşfi ve puanlama için `Librarian` ajanını kur.
+4. Kendini güncelleme için `Tech Scout`'u uygula.

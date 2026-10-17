@@ -1,9 +1,9 @@
-"""Unit tests for the Nexus AI Studio core.
+"""Nexus AI Studio çekirdeği için birim testleri.
 
-These run without a network connection and without an LLM: the Ollama wrapper is
-replaced by a fake in-memory implementation.
+Bu testler ağ bağlantısı ve LLM olmadan çalışır: Ollama wrapper'ı yerine
+bellek içi sahte (fake) bir uygulama kullanılır.
 
-Run with:  python -m unittest discover -s tests -v
+Çalıştırma:  python -m unittest discover -s tests -v
 """
 
 import asyncio
@@ -25,6 +25,8 @@ from wrappers.hermes_wrapper import HermesWrapper  # noqa: E402
 
 
 class FakeWrapper(BaseWrapper):
+    """Bellek içi sahte wrapper; gerçek bir araca ihtiyaç duymaz."""
+
     def __init__(self, name, answer="ok"):
         super().__init__(name)
         self.answer = answer
@@ -52,7 +54,7 @@ class DispatcherTests(unittest.TestCase):
     def test_dispatch_unknown_wrapper_returns_error(self):
         dispatcher = Dispatcher()
         result = asyncio.run(dispatcher.dispatch("Missing", "hi"))
-        self.assertIn("not registered", result)
+        self.assertIn("kayıtlı değil", result)
 
     def test_dispatch_parallel_collects_all_results(self):
         dispatcher = Dispatcher()
@@ -66,7 +68,7 @@ class DispatcherTests(unittest.TestCase):
 
 class RouterTests(unittest.TestCase):
     def setUp(self):
-        # Isolate quota state so tests do not depend on data/quotas.json.
+        # Kota durumunu izole et; testler data/quotas.json'a bağlı kalmasın.
         self._tmp = tempfile.TemporaryDirectory()
         self._cwd = os.getcwd()
         os.chdir(self._tmp.name)
@@ -87,7 +89,7 @@ class RouterTests(unittest.TestCase):
         )
 
     def test_available_names_limits_the_choice(self):
-        """Regression: the router used to pick Claude even when only Ollama was wired up."""
+        """Regresyon: router, yalnızca Ollama bağlıyken bile Claude'u seçiyordu."""
         router = IntelligentRouter()
         self.assertEqual(
             asyncio.run(router.select_best_model("optimize security architecture", ["Ollama"])),
@@ -102,7 +104,7 @@ class RouterTests(unittest.TestCase):
         )
 
     def test_hermes_is_chosen_for_code_when_ollama_is_too_weak(self):
-        """Ollama (capability 5) cannot handle a complexity-6 coding prompt."""
+        """Ollama (yetenek 5) karmaşıklığı 6 olan kod isteğini karşılayamaz."""
         router = IntelligentRouter()
         self.assertEqual(
             asyncio.run(router.select_best_model("fix this bug", ["Ollama", "Hermes"])),
@@ -149,7 +151,7 @@ class ParallelExecutorTests(unittest.TestCase):
         self.assertEqual(wrapper.calls, 2)
 
     def test_parallel_run_does_not_route_to_unregistered_models(self):
-        """Regression: executor used to pick Claude, which had no wrapper."""
+        """Regresyon: executor, wrapper'ı olmayan Claude'u seçiyordu."""
         dispatcher = Dispatcher()
         dispatcher.register_wrapper("Ollama", FakeWrapper("Ollama", "done"))
         executor = ParallelExecutor(dispatcher, IntelligentRouter())
@@ -159,7 +161,7 @@ class ParallelExecutorTests(unittest.TestCase):
         )
 
         self.assertEqual(results[1]["model"], "Ollama")
-        self.assertNotIn("not registered", results[1]["response"])
+        self.assertNotIn("kayıtlı değil", results[1]["response"])
 
 
 class HermesWrapperTests(unittest.TestCase):
@@ -169,10 +171,10 @@ class HermesWrapperTests(unittest.TestCase):
 
         self.assertEqual(command[0], "hermes.exe")
         self.assertIn("chat", command)
-        self.assertIn("--query-file", command)  # prompt via stdin, not argv
+        self.assertIn("--query-file", command)  # istek stdin'den, argv'den değil
         self.assertIn("-", command)
-        self.assertIn("-Q", command)  # quiet: final response only
-        self.assertNotIn("--yolo", command)  # never run unattended
+        self.assertIn("-Q", command)  # sessiz: yalnızca final yanıt
+        self.assertNotIn("--yolo", command)  # asla gözetimsiz çalıştırma
         self.assertEqual(command[command.index("--max-turns") + 1], "3")
         self.assertEqual(command[command.index("--run-budget") + 1], "60")
 
@@ -199,11 +201,11 @@ class HermesWrapperTests(unittest.TestCase):
 
     def test_execute_without_binary_reports_error(self):
         wrapper = HermesWrapper(binary=None)
-        wrapper.binary = None  # simulate a machine without Hermes installed
+        wrapper.binary = None  # Hermes kurulu olmayan bir makineyi taklit et
 
         result = asyncio.run(wrapper.execute("hi"))
 
-        self.assertIn("bulunamadi", result)
+        self.assertIn("bulunamadı", result)
 
     def test_is_available_reflects_binary(self):
         self.assertTrue(HermesWrapper(binary="hermes.exe").is_available())
@@ -231,15 +233,15 @@ class QuotaManagerTests(unittest.TestCase):
         self.assertTrue(manager.has_quota("SomeNewModel"))
 
     def test_new_models_are_merged_into_existing_file(self):
-        """An existing quotas.json must not hide newly added wrappers."""
+        """Mevcut bir quotas.json, sonradan eklenen wrapper'ları gizlememeli."""
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
         with open(self.path, "w") as f:
             json.dump({"Ollama": {"limit": 10, "used": 4, "unit": "requests"}}, f)
 
         manager = QuotaManager(self.path)
 
-        self.assertEqual(manager.quotas["Ollama"]["used"], 4)  # counter preserved
-        self.assertIn("Hermes", manager.quotas)  # new model picked up
+        self.assertEqual(manager.quotas["Ollama"]["used"], 4)  # sayaç korundu
+        self.assertIn("Hermes", manager.quotas)  # yeni model alındı
 
 
 if __name__ == "__main__":

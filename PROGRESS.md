@@ -1,9 +1,9 @@
-# Nexus AI Studio - Project Progress
+# Nexus AI Studio - Proje İlerlemesi
 
-## Current State
-- **Status:** Faz 1 tamam, Faz 2 başladı (Hermes wrapper entegre)
-- **Completion:** ~%45
-- **Environment:** Python 3.14.7 + Git 2.55 kurulu, proje `.venv` kullanıyor (Hermes'e bağımlı değil)
+## Mevcut Durum
+- **Durum:** Faz 1 tamam, Faz 2 başladı (Hermes wrapper entegre)
+- **Tamamlanma:** ~%45
+- **Ortam:** Python 3.14.7 + Git 2.55 kurulu, proje `.venv` kullanıyor (Hermes'e bağımlı değil)
 
 > Not: Bu dosya daha önce `%5` yazıyordu ama ajan kullanıcıya `%25` demişti.
 > Bu tutarsızlık 2026-10-17'de giderildi ve dosya gerçek duruma göre güncellendi.
@@ -38,12 +38,13 @@
 - [ ] `Codex` ve `Claude` tier'ları tanımlı ama **hiç wrapper'ı yok**
 - [ ] Hermes entegrasyonu: çok turlu `--resume` desteği ve streaming (şimdilik tek seferlik)
 
-## Architectural Notes
+## Mimari Notlar
 - Plugin tabanlı wrapper mimarisi; yeni model eklemek = yeni dosya + `register_wrapper`.
 - Core, model implementasyonlarından ayrık (`BaseWrapper` soyutlaması).
-- Konfigürasyon ortam değişkenleriyle: `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT`.
+- Konfigürasyon ortam değişkenleriyle: `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT`,
+  `HERMES_BIN`, `HERMES_MODEL`, `HERMES_TIMEOUT`, `HERMES_MAX_TURNS`, `HERMES_RUN_BUDGET`.
 
-## Handover Seal
-- **Last Session Date:** 2026-10-17 (OpenCode ile sürdürüldü)
-- **Status:** Çalışan MVP
-- **Ready for:** Faz 2 kalanı (gerçek bulut/CLI wrapper'ları) ve Faz 3 entegrasyonu
+## Devir Teslim Notu
+- **Son Oturum Tarihi:** 2026-10-17 (OpenCode ile sürdürüldü)
+- **Durum:** Çalışan MVP
+- **Hazır:** Faz 2 kalanı (gerçek bulut/CLI wrapper'ları) ve Faz 3 entegrasyonu

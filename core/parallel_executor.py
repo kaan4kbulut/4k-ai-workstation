@@ -11,13 +11,13 @@ class ParallelExecutor:
         self.router = router
 
     async def run_parallel(self, sub_tasks: List[Dict]) -> Dict[int, Dict[str, str]]:
-        """Run every sub-task on its own best model, concurrently.
+        """Her alt görevi kendi en uygun modelinde eşzamanlı çalıştırır.
 
-        Returns a mapping of task id to `{"model": ..., "response": ...}` so the
-        caller knows which model actually handled each sub-task (needed for
-        accurate quota accounting).
+        Görev kimliğinden `{"model": ..., "response": ...}` değerine bir sözlük
+        döndürür; böylece çağıran taraf her alt görevi hangi modelin işlediğini
+        bilir (doğru kota muhasebesi için gereklidir).
         """
-        print(f"[Executor] Running {len(sub_tasks)} tasks in parallel...")
+        print(f"[Executor] {len(sub_tasks)} görev paralel çalıştırılıyor...")
 
         available = list(self.dispatcher.wrappers.keys())
 
@@ -26,7 +26,7 @@ class ParallelExecutor:
         )
 
         for item, model in zip(sub_tasks, models):
-            print(f"  - Task {item['id']} assigned to {model}")
+            print(f"  - Görev {item['id']} -> {model}")
 
         responses = await asyncio.gather(
             *(self.dispatcher.dispatch(model, item["task"]) for item, model in zip(sub_tasks, models)),
@@ -36,7 +36,7 @@ class ParallelExecutor:
         return {
             item["id"]: {
                 "model": model,
-                "response": response if isinstance(response, str) else f"Error: {response}",
+                "response": response if isinstance(response, str) else f"Hata: {response}",
             }
             for item, model, response in zip(sub_tasks, models, responses)
         }

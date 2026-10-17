@@ -19,8 +19,8 @@ class QuotaManager:
         if os.path.exists(self.quota_file):
             with open(self.quota_file, "r") as f:
                 saved = json.load(f)
-            # Keep persisted counters, but pick up models added since the file
-            # was written (e.g. a new wrapper), so their usage is tracked too.
+            # Kaydedilmiş sayaçları koru, ama dosya yazıldıktan sonra eklenen
+            # modelleri (ör. yeni bir wrapper) de al ki kullanımları izlensin.
             merged = dict(DEFAULT_QUOTAS)
             merged.update(saved)
             return merged
@@ -33,7 +33,7 @@ class QuotaManager:
 
     def has_quota(self, model_name: str) -> bool:
         if model_name not in self.quotas:
-            return True # Local/Unknown models assumed unlimited
+            return True  # Yerel/bilinmeyen modeller sınırsız kabul edilir
         
         quota = self.quotas[model_name]
         return quota["used"] < quota["limit"]

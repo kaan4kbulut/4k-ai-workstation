@@ -29,33 +29,33 @@ class IntelligentRouter:
         return 3
 
     async def select_best_model(self, prompt: str, available_names: Iterable[str] | None = None) -> str:
-        """Pick the cheapest model that is capable enough and has quota left.
+        """Yeterince yetenekli ve kotası kalan en ucuz modeli seçer.
 
-        `available_names` limits the choice to models that actually have a
-        registered wrapper. Without it the router could pick a model that no
-        wrapper implements, and the request would fail at dispatch time.
+        `available_names`, seçimi gerçekten kayıtlı wrapper'ı olan modellerle
+        sınırlar. Bu verilmezse router, hiçbir wrapper'ın uygulamadığı bir modeli
+        seçebilir ve istek dağıtım aşamasında başarısız olur.
         """
         complexity = await self.triage_task(prompt)
 
         allowed = set(self.tiers) if available_names is None else set(available_names)
 
-        # Filter models that meet complexity AND have quota AND are wired up
+        # Karmaşıklığı karşılayan VE kotası olan VE bağlı olan modelleri süz
         eligible_models = [
             name for name, tier in self.tiers.items()
             if name in allowed
             and tier.capability_score >= complexity
             and self.quota_manager.has_quota(name)
         ]
-        
+
         if not eligible_models:
-            # Fallback: any usable model with quota, regardless of complexity
+            # Geri düşme: karmaşıklığa bakmadan kotası olan herhangi bir model
             available_models = [
                 name for name in self.tiers
                 if name in allowed and self.quota_manager.has_quota(name)
             ]
             if available_models:
                 return sorted(available_models, key=lambda x: -self.tiers[x].capability_score)[0]
-            return "Ollama" # Absolute fallback
+            return "Ollama"  # Mutlak geri düşme
 
         sorted_models = sorted(
             eligible_models, 

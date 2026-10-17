@@ -15,15 +15,15 @@ quota_manager = QuotaManager()
 planner = TaskPlanner()
 executor = ParallelExecutor(dispatcher, router)
 
-# Register default wrappers
+# Varsayılan wrapper'ları kaydet
 dispatcher.register_wrapper("Ollama", OllamaWrapper())
 
-# Hermes is optional: only register it when the CLI is actually installed.
+# Hermes isteğe bağlıdır: yalnızca CLI gerçekten kuruluysa kaydedilir.
 hermes = HermesWrapper()
 if hermes.is_available():
     dispatcher.register_wrapper("Hermes", hermes)
 else:
-    print("[Startup] Hermes CLI bulunamadi; 'Hermes' kaydedilmedi.")
+    print("[Başlangıç] Hermes CLI bulunamadı; 'Hermes' kaydedilmedi.")
 
 
 class QueryRequest(BaseModel):
@@ -49,12 +49,12 @@ async def get_status():
 @app.post("/query")
 async def query_model(request: QueryRequest):
     try:
-        # If parallel is requested, use the ParallelExecutor flow
+        # Paralel istendiyse ParallelExecutor akışını kullan
         if request.parallel:
             sub_tasks = await planner.decompose(request.prompt)
             results = await executor.run_parallel(sub_tasks)
 
-            # Charge each model that actually handled a sub-task.
+            # Gerçekten her alt görevi işleyen modelden kota düş.
             for result in results.values():
                 quota_manager.consume_quota(result["model"])
 
@@ -65,7 +65,7 @@ async def query_model(request: QueryRequest):
                 "auto_routed": True,
             }
 
-        # Standard Single-Model Flow
+        # Standart tek-model akışı
         model_to_use = request.model
         if model_to_use == "auto":
             model_to_use = await router.select_best_model(

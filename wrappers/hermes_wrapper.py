@@ -1,27 +1,27 @@
-"""Hermes agent wrapper.
+"""Hermes ajanı wrapper'ı.
 
-Runs the local Hermes agent (Nous Research) as a headless, one-shot CLI call:
+Yerel Hermes ajanını (Nous Research) headless, tek seferlik bir CLI çağrısı
+olarak çalıştırır:
 
     hermes chat --query-file - -Q --max-turns N --run-budget S
 
-The prompt is passed on stdin via ``--query-file -`` so it is never
-shell-interpreted (quotes, ``$(...)`` and backticks survive verbatim). ``-Q``
-runs in quiet mode: no banner, spinner or tool previews, only the final
-response.
+İstek, `--query-file -` ile stdin üzerinden verilir; böylece shell tarafından
+yorumlanmaz (tırnaklar, `$(...)` ve backtick'ler aynen korunur). `-Q` sessiz
+moddur: banner, spinner veya araç önizlemesi yok; yalnızca final yanıt gelir.
 
-Verified output contract (Hermes v0.22.2):
-    stdout -> the final response, plain text
-    stderr -> ``session_id: <id>`` (used for ``--resume``)
+Doğrulanan çıktı sözleşmesi (Hermes v0.22.2):
+    stdout -> final yanıt, düz metin
+    stderr -> ``session_id: <id>`` (``--resume`` için kullanılır)
 
-Configuration (environment variables):
-    HERMES_BIN         Path to the hermes executable. Auto-detected if unset.
-    HERMES_MODEL       Optional model override (``-m``).
-    HERMES_TIMEOUT     Subprocess timeout in seconds. Default: 300
-    HERMES_MAX_TURNS   Agent turn budget. Default: 6
-    HERMES_RUN_BUDGET  Agent wall-clock budget in seconds. Default: 180
+Yapılandırma (ortam değişkenleri):
+    HERMES_BIN         hermes çalıştırılabilir dosyasının yolu. Boşsa otomatik bulunur.
+    HERMES_MODEL       İsteğe bağlı model geçersiz kılma (``-m``).
+    HERMES_TIMEOUT     Alt süreç zaman aşımı (saniye). Varsayılan: 300
+    HERMES_MAX_TURNS   Ajan tur bütçesi. Varsayılan: 6
+    HERMES_RUN_BUDGET  Ajan toplam süre bütçesi (saniye). Varsayılan: 180
 
-Note: ``--yolo`` is deliberately never used, so Hermes keeps asking for
-approval instead of taking unattended, irreversible actions.
+Not: ``--yolo`` bilinçli olarak asla kullanılmaz; böylece Hermes gözetimsiz,
+geri dönüşsüz işlemler yapmak yerine onay sormaya devam eder.
 """
 
 import asyncio
@@ -54,7 +54,7 @@ class HermesWrapper(BaseWrapper):
 
     @staticmethod
     def detect_binary() -> str | None:
-        """Locate the hermes executable, or return None if it is not installed."""
+        """hermes çalıştırılabilir dosyasını bulur; kurulu değilse None döndürür."""
         explicit = os.environ.get("HERMES_BIN")
         if explicit and os.path.exists(explicit):
             return explicit
@@ -82,7 +82,7 @@ class HermesWrapper(BaseWrapper):
         return bool(self.binary)
 
     def build_command(self) -> list[str]:
-        """The argv used for a headless one-shot run."""
+        """Headless tek seferlik çalıştırma için argv listesi."""
         command = [
             self.binary,
             "chat",
@@ -100,7 +100,7 @@ class HermesWrapper(BaseWrapper):
 
     @staticmethod
     def parse_output(stdout: bytes | str, stderr: bytes | str) -> tuple[str, str | None]:
-        """Split Hermes output into (response, session_id)."""
+        """Hermes çıktısını (yanıt, session_id) olarak ayırır."""
         if isinstance(stdout, (bytes, bytearray)):
             stdout = stdout.decode("utf-8", errors="replace")
         if isinstance(stderr, (bytes, bytearray)):
@@ -112,8 +112,8 @@ class HermesWrapper(BaseWrapper):
     async def execute(self, prompt: str) -> str:
         if not self.binary:
             return (
-                "Error: Hermes calistirilabilir dosyasi bulunamadi. "
-                "Kuruluysa HERMES_BIN ortam degiskenini ayarlayin."
+                "Hata: Hermes çalıştırılabilir dosyası bulunamadı. "
+                "Kuruluysa HERMES_BIN ortam değişkenini ayarlayın."
             )
 
         env = dict(os.environ)
@@ -128,7 +128,7 @@ class HermesWrapper(BaseWrapper):
                 env=env,
             )
         except OSError as exc:
-            return f"Error: Hermes baslatilamadi: {exc}"
+            return f"Hata: Hermes başlatılamadı: {exc}"
 
         try:
             stdout, stderr = await asyncio.wait_for(
@@ -137,7 +137,7 @@ class HermesWrapper(BaseWrapper):
         except asyncio.TimeoutError:
             process.kill()
             await process.wait()
-            return f"Error: Hermes {self.timeout:.0f} saniyede yanit vermedi."
+            return f"Hata: Hermes {self.timeout:.0f} saniyede yanıt vermedi."
 
         response, session_id = self.parse_output(stdout, stderr)
         if session_id:
@@ -146,12 +146,12 @@ class HermesWrapper(BaseWrapper):
         if not response:
             if process.returncode != 0:
                 detail = (stderr or b"").decode("utf-8", errors="replace").strip()
-                return f"Error: Hermes exit {process.returncode}: {detail[:200]}"
-            return "Error: Hermes bos yanit dondurdu."
+                return f"Hata: Hermes exit {process.returncode}: {detail[:200]}"
+            return "Hata: Hermes boş yanıt döndürdü."
 
         return response
 
     async def check_quota(self) -> float:
-        # Hermes uses the operator's own provider credentials; the gateway does
-        # not model that quota itself.
+        # Hermes, kullanıcının kendi sağlayıcı kimlik bilgilerini kullanır;
+        # geçit bu kotayı kendisi modellemez.
         return 1.0

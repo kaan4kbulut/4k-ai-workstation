@@ -3,6 +3,8 @@ from typing import List, Dict
 from wrappers.base_wrapper import BaseWrapper
 
 class Dispatcher:
+    """Kayıtlı wrapper'lara istek gönderen dağıtıcı."""
+
     def __init__(self):
         self.wrappers: Dict[str, BaseWrapper] = {}
 
@@ -11,10 +13,10 @@ class Dispatcher:
 
     async def dispatch(self, target_wrapper_name: str, prompt: str) -> str:
         if target_wrapper_name not in self.wrappers:
-            return f"Error: Wrapper {target_wrapper_name} not registered."
-        
+            return f"Hata: {target_wrapper_name} wrapper'ı kayıtlı değil."
+
         wrapper = self.wrappers[target_wrapper_name]
-        print(f"[Dispatcher] Sending request to {wrapper.name}...")
+        print(f"[Dispatcher] İstek gönderiliyor: {wrapper.name}...")
         return await wrapper.execute(prompt)
 
     async def dispatch_parallel(self, target_wrappers: List[str], prompt: str) -> Dict[str, str]:

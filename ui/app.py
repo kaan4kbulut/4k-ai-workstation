@@ -3,48 +3,48 @@ import streamlit as st
 
 st.set_page_config(page_title="Nexus AI Studio", layout="wide")
 
-st.title("🚀 Nexus AI Studio Control Panel")
+st.title("🚀 Nexus AI Studio Kontrol Paneli")
 
-# Sidebar for Status
-st.sidebar.header("System Status")
+# Kenar çubuğu - durum bilgisi
+st.sidebar.header("Sistem Durumu")
 registered_models: list[str] = []
 try:
     status_res = requests.get("http://localhost:8000/status", timeout=5).json()
-    st.sidebar.success(f"Server: {status_res['status']}")
+    st.sidebar.success(f"Sunucu: {status_res['status']}")
     registered_models = status_res.get("registered_models", [])
-    st.sidebar.write("**Available Models:**")
+    st.sidebar.write("**Kullanılabilir Modeller:**")
     for m in registered_models:
         st.sidebar.markdown(f"- {m}")
-    with st.sidebar.expander("Quota"):
+    with st.sidebar.expander("Kota"):
         st.json(status_res.get("quotas", {}))
 except Exception:
-    st.sidebar.error("Server Offline")
+    st.sidebar.error("Sunucuya ulaşılamıyor")
 
-# Main Chat Interface
-st.subheader("Command Center")
-user_prompt = st.text_area("Enter your prompt:", placeholder="Example: Optimize this Python function...")
-is_parallel = st.checkbox("Parallel Execution (Split Task)", value=False)
-selected_model = st.selectbox("Select Model:", ["auto", *registered_models] or ["auto"])
+# Ana komut arayüzü
+st.subheader("Komut Merkezi")
+user_prompt = st.text_area("İsteğini yaz:", placeholder="Örnek: Bu Python fonksiyonunu optimize et...")
+is_parallel = st.checkbox("Paralel Çalıştırma (Görevi Böl)", value=False)
+selected_model = st.selectbox("Model Seç:", ["auto", *registered_models] or ["auto"])
 
-if st.button("Execute"):
+if st.button("Çalıştır"):
     if not user_prompt:
-        st.warning("Please enter a prompt.")
+        st.warning("Lütfen bir istek yaz.")
     else:
-        with st.spinner("Executing..."):
+        with st.spinner("Çalışıyor..."):
             try:
                 payload = {"prompt": user_prompt, "model": selected_model, "parallel": is_parallel}
                 response = requests.post(
                     "http://localhost:8000/query", json=payload, timeout=300
                 ).json()
 
-                st.markdown("### Response")
+                st.markdown("### Yanıt")
                 if response.get("type") == "parallel":
-                    st.info(f"Task decomposed into {response['sub_tasks_count']} parallel sub-tasks.")
+                    st.info(f"Görev {response['sub_tasks_count']} alt göreve bölündü.")
                     for task_id, result in response["responses"].items():
-                        with st.expander(f"Sub-task {task_id} — {result['model']}"):
+                        with st.expander(f"Alt görev {task_id} — {result['model']}"):
                             st.write(result["response"])
                 else:
                     st.write(response.get("response"))
-                    st.caption(f"Used model: {response.get('model')}")
+                    st.caption(f"Kullanılan model: {response.get('model')}")
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Hata: {e}")
