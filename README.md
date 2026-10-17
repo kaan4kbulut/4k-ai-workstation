@@ -25,27 +25,52 @@ sub-tasks in parallel.
 
 ## 🛠️ Installation
 
-```bash
-python -m venv .venv
-.venv\Scripts\activate        # Windows
-pip install -r requirements.txt
+Requires **Python 3.12+** (3.14 tested). If it is missing:
+
+```powershell
+winget install --scope user Python.Python.3.14
 ```
+
+Then create the virtual environment and install dependencies — one command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup.ps1
+```
+
+This creates `.venv`, installs `requirements.txt`, and runs the test suite.
+
+<details>
+<summary>Manual setup (equivalent)</summary>
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+</details>
 
 ## ▶️ Running
 
-Two terminals, from the project root:
+One command starts both the backend and the dashboard:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\run.ps1
+```
+
+Then open http://localhost:8501. Press Ctrl+C to stop both.
+
+<details>
+<summary>Running the two services manually</summary>
 
 **Terminal 1 — backend**
-```bash
-python -m uvicorn ui.server:app --host 127.0.0.1 --port 8000
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn ui.server:app --host 127.0.0.1 --port 8000
 ```
 
 **Terminal 2 — dashboard**
-```bash
-python -m streamlit run ui/app.py
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run ui/app.py
 ```
-
-Then open http://localhost:8501.
+</details>
 
 ## 🔧 Configuration (environment variables)
 
@@ -63,9 +88,11 @@ ollama pull llama3
 
 ## 🧪 Tests
 
-```bash
-python -m unittest discover -s tests -v
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
+
+Tests run offline — no LLM or network access required.
 
 ## 📡 API
 
@@ -90,7 +117,12 @@ curl -X POST http://127.0.0.1:8000/query ^
 - [x] **Quota Management:** persistent usage tracking + auto-fallback
 - [x] **UI Prototype:** working dashboard + API bridge
 - [x] **Parallelism:** task decomposition + async execution
-- [ ] **Cloud/CLI wrappers:** Claude Code, Codex, Antigravity
+- [ ] **Cloud/CLI wrappers:** Claude Code, Codex, Antigravity, **Hermes**
+
+> CLI agent wrappers simply shell out to the tool and capture stdout — any agent
+> with a non-interactive mode (e.g. `hermes -z "prompt"`) can be plugged in.
+> Providers exposing an OpenAI-compatible endpoint (e.g. `hermes proxy`) can
+> reuse a shared client wrapper.
 - [ ] **Device benchmark / model recommendation**
 - [ ] **Librarian** (model discovery & scoring) and **Tech Scout** (self-evolution)
 
