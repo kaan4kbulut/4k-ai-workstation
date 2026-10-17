@@ -2,6 +2,14 @@ import json
 import os
 from typing import Dict
 
+DEFAULT_QUOTAS = {
+    "Ollama": {"limit": 1000, "used": 0, "unit": "requests"},
+    "Codex": {"limit": 100, "used": 0, "unit": "requests"},
+    "Claude": {"limit": 50, "used": 0, "unit": "requests"},
+    "Hermes": {"limit": 200, "used": 0, "unit": "requests"},
+}
+
+
 class QuotaManager:
     def __init__(self, quota_file: str = "data/quotas.json"):
         self.quota_file = quota_file
@@ -10,13 +18,13 @@ class QuotaManager:
     def _load_quotas(self) -> Dict:
         if os.path.exists(self.quota_file):
             with open(self.quota_file, "r") as f:
-                return json.load(f)
-        # Default quotas for prototype
-        return {
-            "Ollama": {"limit": 1000, "used": 0, "unit": "requests"},
-            "Codex": {"limit": 100, "used": 0, "unit": "requests"},
-            "Claude": {"limit": 50, "used": 0, "unit": "requests"},
-        }
+                saved = json.load(f)
+            # Keep persisted counters, but pick up models added since the file
+            # was written (e.g. a new wrapper), so their usage is tracked too.
+            merged = dict(DEFAULT_QUOTAS)
+            merged.update(saved)
+            return merged
+        return dict(DEFAULT_QUOTAS)
 
     def _save_quotas(self):
         os.makedirs(os.path.dirname(self.quota_file), exist_ok=True)

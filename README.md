@@ -20,6 +20,7 @@ sub-tasks in parallel.
 - `/wrappers`
     - `base_wrapper.py`: Abstract base class for all wrappers.
     - `ollama_wrapper.py`: Local models via the Ollama HTTP API.
+    - `hermes_wrapper.py`: The Hermes agent CLI, run headless (one-shot).
 - `/tests`: Unit tests (no network or LLM required).
 - `/data`: Persistent quota state (git-ignored).
 
@@ -79,12 +80,31 @@ Then open http://localhost:8501. Press Ctrl+C to stop both.
 | `OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama server URL |
 | `OLLAMA_MODEL` | `llama3` | Model used by the Ollama wrapper |
 | `OLLAMA_TIMEOUT` | `120` | Per-request timeout in seconds |
+| `HERMES_BIN` | auto-detected | Path to the `hermes` executable |
+| `HERMES_MODEL` | (Hermes default) | Optional model override for Hermes |
+| `HERMES_TIMEOUT` | `300` | Hermes subprocess timeout (s) |
+| `HERMES_MAX_TURNS` | `6` | Hermes agent turn budget |
+| `HERMES_RUN_BUDGET` | `180` | Hermes wall-clock budget (s) |
 
 The Ollama wrapper needs the model to be installed locally:
 
 ```bash
 ollama pull llama3
 ```
+
+### Hermes integration
+
+Hermes is registered automatically when its CLI is found (`HERMES_BIN`, `PATH`,
+or `%LOCALAPPDATA%\hermes\bin\hermes.exe`). Each request runs:
+
+```
+hermes chat --query-file - -Q --max-turns N --run-budget S
+```
+
+The prompt goes in over stdin (`--query-file -`), so it is never
+shell-interpreted. `-Q` yields the plain final response on stdout; the
+`session_id` arrives on stderr. `--yolo` is intentionally never passed, so
+Hermes keeps its approval prompts instead of acting unattended.
 
 ## 🧪 Tests
 
@@ -100,7 +120,7 @@ Tests run offline — no LLM or network access required.
 | --- | --- | --- |
 | GET | `/health` | Liveness probe |
 | GET | `/status` | Registered models + quota snapshot |
-| POST | `/query` | `{prompt, model: "auto"\|"Ollama", parallel: bool}` |
+| POST | `/query` | `{prompt, model: "auto"\|"Ollama"\|"Hermes", parallel: bool}` |
 
 Example:
 
@@ -117,7 +137,8 @@ curl -X POST http://127.0.0.1:8000/query ^
 - [x] **Quota Management:** persistent usage tracking + auto-fallback
 - [x] **UI Prototype:** working dashboard + API bridge
 - [x] **Parallelism:** task decomposition + async execution
-- [ ] **Cloud/CLI wrappers:** Claude Code, Codex, Antigravity, **Hermes**
+- [x] **CLI agent wrapper:** Hermes (headless one-shot via `hermes chat -Q`)
+- [ ] **Cloud/CLI wrappers:** Claude Code, Codex, Antigravity
 
 > CLI agent wrappers simply shell out to the tool and capture stdout — any agent
 > with a non-interactive mode (e.g. `hermes -z "prompt"`) can be plugged in.

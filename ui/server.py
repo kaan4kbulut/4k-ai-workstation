@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from core.dispatcher import Dispatcher
 from wrappers.ollama_wrapper import OllamaWrapper
+from wrappers.hermes_wrapper import HermesWrapper
 from core.router import IntelligentRouter
 from core.quota_manager import QuotaManager
 from core.planner import TaskPlanner
@@ -16,6 +17,13 @@ executor = ParallelExecutor(dispatcher, router)
 
 # Register default wrappers
 dispatcher.register_wrapper("Ollama", OllamaWrapper())
+
+# Hermes is optional: only register it when the CLI is actually installed.
+hermes = HermesWrapper()
+if hermes.is_available():
+    dispatcher.register_wrapper("Hermes", hermes)
+else:
+    print("[Startup] Hermes CLI bulunamadi; 'Hermes' kaydedilmedi.")
 
 
 class QueryRequest(BaseModel):

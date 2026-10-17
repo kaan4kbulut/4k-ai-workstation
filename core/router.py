@@ -15,6 +15,7 @@ class IntelligentRouter:
         self.quota_manager = QuotaManager()
         self.tiers = {
             "Ollama": ModelTier("Ollama", capability_score=5, cost_per_token=0.0, is_local=True),
+            "Hermes": ModelTier("Hermes", capability_score=8, cost_per_token=0.02, is_local=False),
             "Codex": ModelTier("Codex", capability_score=7, cost_per_token=0.01, is_local=False),
             "Claude": ModelTier("Claude", capability_score=10, cost_per_token=0.05, is_local=False),
         }

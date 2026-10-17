@@ -1,8 +1,9 @@
 # Nexus AI Studio - Project Progress
 
 ## Current State
-- **Status:** Phase 1 (Core Engine + UI) — çalışır durumda
-- **Completion:** ~%30 (Faz 1 tamam, Faz 2 kısmen tamam)
+- **Status:** Faz 1 tamam, Faz 2 başladı (Hermes wrapper entegre)
+- **Completion:** ~%45
+- **Environment:** Python 3.14.7 + Git 2.55 kurulu, proje `.venv` kullanıyor (Hermes'e bağımlı değil)
 
 > Not: Bu dosya daha önce `%5` yazıyordu ama ajan kullanıcıya `%25` demişti.
 > Bu tutarsızlık 2026-10-17'de giderildi ve dosya gerçek duruma göre güncellendi.
@@ -14,7 +15,8 @@
 - [x] Router: karmaşık görev → güçlü model, basit görev → yerel/ucuz model
 - [x] Kota yöneticisi: `data/quotas.json` üzerinden kalıcı sayaç, otomatik düşme
 - [x] Paralel yürütme: görev bölme + `asyncio.gather` ile eşzamanlı çalıştırma
-- [x] 12 birim testi geçiyor (`python -m unittest discover -s tests`)
+- [x] **Hermes ajanı wrapper olarak entegre** (`hermes chat --query-file - -Q`, headless)
+- [x] 21 birim testi geçiyor (`python -m unittest discover -s tests`)
 
 ## Bu Oturumda Düzeltilen Hatalar
 1. `ui/app.py`: çift `if st.button(...)` satırı → IndentationError (dosya hiç çalışmıyordu).
@@ -28,13 +30,13 @@
    Executor artık görev başına kullanılan modeli döndürüyor.
 
 ## Eksikler / Yapılacaklar
-- [ ] Gerçek CLI ajanları: Claude Code, Codex, Antigravity wrapper'ları (projenin asıl amacı)
+- [ ] Gerçek CLI ajanları: Claude Code, Codex, Antigravity wrapper'ları (Hermes yapıldı)
 - [ ] Cihaz testi / benchmark ve otomatik model önerisi (asıl istenen özellik)
 - [ ] Bulut hesap/API anahtarı yönetimi (kullanıcının "tüm hesaplarımı bir araya getir" isteği)
 - [ ] Faz 4: Librarian (yeni model keşfi + puanlama)
 - [ ] Faz 5: Tech Scout (kendi kendini güncelleme)
-- [ ] Şu an `Codex` ve `Claude` tier'ları tanımlı ama **hiç wrapper'ı yok**
-- [ ] Geliştirme ortamı: makinede sistem Python'u ve Git kurulu değil
+- [ ] `Codex` ve `Claude` tier'ları tanımlı ama **hiç wrapper'ı yok**
+- [ ] Hermes entegrasyonu: çok turlu `--resume` desteği ve streaming (şimdilik tek seferlik)
 
 ## Architectural Notes
 - Plugin tabanlı wrapper mimarisi; yeni model eklemek = yeni dosya + `register_wrapper`.

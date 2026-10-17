@@ -7,11 +7,13 @@ st.title("🚀 Nexus AI Studio Control Panel")
 
 # Sidebar for Status
 st.sidebar.header("System Status")
+registered_models: list[str] = []
 try:
     status_res = requests.get("http://localhost:8000/status", timeout=5).json()
     st.sidebar.success(f"Server: {status_res['status']}")
+    registered_models = status_res.get("registered_models", [])
     st.sidebar.write("**Available Models:**")
-    for m in status_res["registered_models"]:
+    for m in registered_models:
         st.sidebar.markdown(f"- {m}")
     with st.sidebar.expander("Quota"):
         st.json(status_res.get("quotas", {}))
@@ -22,7 +24,7 @@ except Exception:
 st.subheader("Command Center")
 user_prompt = st.text_area("Enter your prompt:", placeholder="Example: Optimize this Python function...")
 is_parallel = st.checkbox("Parallel Execution (Split Task)", value=False)
-selected_model = st.selectbox("Select Model:", ["auto", "Ollama"])
+selected_model = st.selectbox("Select Model:", ["auto", *registered_models] or ["auto"])
 
 if st.button("Execute"):
     if not user_prompt:
