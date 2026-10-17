@@ -984,7 +984,7 @@ class UsageTracker:
         md.append("---")
         md.append("")
 
-        # 1. BÖLÜM: KATMAN ÖZETİ
+        # 1. BÖLÜM: KATMAN ÖZETİ (Sadece 3 Sütun)
         tok_free_5h = h5.get("tokens_free", 0)
         tok_low_5h = h5.get("tokens_low_quota", 0)
         tok_prem_5h = h5.get("tokens_premium", 0)
@@ -1002,39 +1002,34 @@ class UsageTracker:
         bar_prem_5h = render_model_quota_bar(tok_prem_5h, 1_900_000, is_free=False)
         bar_prem_w = render_model_quota_bar(tok_prem_w, 9_500_000, is_free=False)
 
-        md.append("### 🟢 1. KATMAN ÖZETİ (Ücretsiz 0 TL vs İşçi vs Uzman - Kendi Kotalarıyla)")
-        md.append("| Katman | Kendi Kotası | 5 Saatlik Doluluk Grafiği | Haftalık Doluluk Grafiği |")
-        md.append("| :--- | :--- | :--- | :--- |")
-        md.append(f"| `🟢 Ücretsiz / Yerel (0 TL)` | 🟢 Sınırsız (Claude Ref) | `{bar_free_5h}` | `{bar_free_w}` |")
-        md.append(f"| `⚡ Düşük Kota İşçi (Flash/Codex)` | ⚡ 3.3M / 16.5M Token | `{bar_low_5h}` | `{bar_low_w}` |")
-        md.append(f"| `💎 Uzman Katman (Claude/Argon)` | 💎 1.9M / 9.5M Token | `{bar_prem_5h}` | `{bar_prem_w}` |")
+        md.append("### 🟢 1. KATMAN ÖZETİ")
+        md.append("| Katman | 5 Saatlik Doluluk | Haftalık Doluluk |")
+        md.append("| :--- | :--- | :--- |")
+        md.append(f"| 💎 Uzman Katman (Claude / Argon) | `{bar_prem_5h}` | `{bar_prem_w}` |")
+        md.append(f"| ⚡ Düşük Kota İşçi (Flash / Codex) | `{bar_low_5h}` | `{bar_low_w}` |")
+        md.append(f"| 🟢 Ücretsiz / Yerel (0 TL) | `{bar_free_5h}` | `{bar_free_w}` |")
         md.append("")
         ratio_val = h5.get("free_and_worker_ratio", 0.0)
         saved_val = h5.get("estimated_saved_usd", 0.0)
-        md.append(f"> 🛡️ **Kota Koruma Oranı:** %{ratio_val:.1f} (İşlerin %{ratio_val:.1f}'i ana model kotası harcanmadan çözüldü)")
-        md.append(f"> 💰 **Tahmini Finansal Tasarruf:** ${saved_val:.2f} (Yerel RTX 5070 Ti, OpenRouter Free ve Flash işçileri sayesinde)")
-        md.append("> 💡 **Limit Üstü Güç (🔥):** Ücretsiz ve yerel modeller kotasız olduğu için ücretli Claude kotasına (400K / 2M) göre %100 sınırını rahatça aşabilir!")
+        md.append(f"> 🛡️ **Kota Koruma Oranı:** %{ratio_val:.1f} | 💰 **Tahmini Tasarruf:** ${saved_val:.2f}")
         md.append("")
         md.append("---")
         md.append("")
 
-        # 2. BÖLÜM: ALT MODELLER (Model Model Ayrı Satırlar!)
-        # Kural:
-        # - En üstte sabit standart sırada: 💎/⚡ Ücretli & Kotalı Referans Alt Modelleri
-        # - Hemen altında: 🟢 Ücretsiz & Yerel (0 TL) Modeller — en çok kullanılandan aşağıya doğru dinamik sıralı
-        md.append("### 🤖 2. ALT MODELLER — Model Model Ayrıntılı Kota & Token Doluluk Grafiği")
-        md.append("| Model Adı / Alt Motor | Katman | Kendi Kota Sınırı | 5 Saatlik Doluluk Grafiği | Haftalık Doluluk Grafiği |")
-        md.append("| :--- | :--- | :--- | :--- | :--- |")
+        # 2. BÖLÜM: MODELLER VE EFORLAR (Sadece 3 Sütun: Model ve Efor | 5 Saatlik | Haftalık)
+        md.append("### 🤖 2. MODELLER VE EFORLAR")
+        md.append("| Model ve Efor (Katman) | 5 Saatlik Doluluk | Haftalık Doluluk |")
+        md.append("| :--- | :--- | :--- |")
 
         m_data_5h = self._aggregate_model_tokens(h5.get("_raw_events", []))
         m_data_w = self._aggregate_model_tokens(w.get("_raw_events", []))
 
-        def get_model_tier_badge(tier: str):
+        def get_tier_icon(tier: str) -> str:
             if tier == "free":
-                return "🟢 0 TL (Yerel)"
+                return "🟢"
             elif tier == "low_quota":
-                return "⚡ Düşük Kota (İşçi)"
-            return "💎 Uzman Katman"
+                return "⚡"
+            return "💎"
 
         # 1. Kısım: Ücretli modeller en ağır kota/token harcayandan aşağıya sabit sırada
         for spec in self.PAID_REFERENCE_MODELS:
@@ -1050,10 +1045,9 @@ class UsageTracker:
 
             bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=False)
             bar_w = render_model_quota_bar(tok_w, lim_w, is_free=False)
-            badge = get_model_tier_badge(spec["tier"])
-            q_desc = spec.get("quota_type", "")
+            icon = get_tier_icon(spec["tier"])
 
-            md.append(f"| `{m_name}` | {badge} | {q_desc} | `{bar_5h}` | `{bar_w}` |")
+            md.append(f"| {icon} `{m_name}` | `{bar_5h}` | `{bar_w}` |")
 
         # 2. Kısım: Ücretsiz modeller en çok kullanılandan en aza doğru sıralı
         sorted_free = sorted(
@@ -1075,20 +1069,17 @@ class UsageTracker:
 
             bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=True)
             bar_w = render_model_quota_bar(tok_w, lim_w, is_free=True)
-            badge = get_model_tier_badge(spec["tier"])
-            q_desc = spec.get("quota_type", "")
 
-            md.append(f"| `{m_name}` | {badge} | {q_desc} | `{bar_5h}` | `{bar_w}` |")
+            md.append(f"| 🟢 `{m_name} (0 TL)` | `{bar_5h}` | `{bar_w}` |")
 
         md.append("")
         md.append("---")
         md.append("")
 
-        # 3. BÖLÜM: CLI ARAÇLARI
-        # En ağır kotalı ücretli CLI'lar üstte (ClaudeCode 400K -> Codex 800K -> Antigravity 1.5M), ücretsizler en çok kullanılandan en aza sıralı
-        md.append("### 🛠️ 3. CLI ARAÇLARI (Kendi Kotalarına Göre Doluluk Grafiği)")
-        md.append("| CLI Aracı | Lisans ve Donanım | Kendi Kotası | 5 Saatlik Doluluk Grafiği | Haftalık Doluluk Grafiği |")
-        md.append("| :--- | :--- | :--- | :--- | :--- |")
+        # 3. BÖLÜM: CLI ARAÇLARI (Sadece 3 Sütun: CLI Aracı | 5 Saatlik | Haftalık)
+        md.append("### 🛠️ 3. CLI ARAÇLARI")
+        md.append("| CLI Aracı (Katman) | 5 Saatlik Doluluk | Haftalık Doluluk |")
+        md.append("| :--- | :--- | :--- |")
 
         cli_5h_tokens = self._aggregate_cli_tokens(h5.get("_raw_events", []))
         cli_w_tokens = self._aggregate_cli_tokens(w.get("_raw_events", []))
@@ -1096,7 +1087,6 @@ class UsageTracker:
         paid_clis = ["ClaudeCode", "Codex", "Antigravity"]
         free_clis = ["4KWorkstation", "TestRunner", "OpenCode", "Hermes", "YerelOllama"]
 
-        # Ücretsizleri haftalık token kullanımına göre azalan sırala
         sorted_free_clis = sorted(free_clis, key=lambda c: cli_w_tokens.get(c, {}).get("tokens", 0), reverse=True)
         ordered_clis = paid_clis + sorted_free_clis
 
@@ -1107,45 +1097,30 @@ class UsageTracker:
             c_lower = c_name.lower()
             if "antigravity" in c_lower:
                 lim_5h, lim_w, is_free = 1_500_000, 7_500_000, False
-                quota_str = "💎 1.50M (5s) • 7.50M (Hafta)"
-                note = "💎 Google Antigravity CLI (agy.exe)"
+                label = "💎 `Antigravity (agy.exe)`"
             elif "claude" in c_lower:
                 lim_5h, lim_w, is_free = 400_000, 2_000_000, False
-                quota_str = "💎 400K (5s) • 2.00M (Hafta)"
-                note = "💎 Anthropic Claude CLI"
+                label = "💎 `ClaudeCode`"
             elif "codex" in c_lower:
                 lim_5h, lim_w, is_free = 800_000, 4_000_000, False
-                quota_str = "⚡ 800K (5s) • 4.00M (Hafta)"
-                note = "⚡ OpenAI Codex CLI"
+                label = "⚡ `Codex`"
             else:
                 lim_5h, lim_w, is_free = REF_FREE_LIMIT_5H, REF_FREE_LIMIT_WEEKLY, True
-                quota_str = "🟢 0 TL (Claude 400K Ref)"
-                if "4kworkstation" in c_lower:
-                    note = "🟢 4K AI Workstation Terminal CLI (0 TL)"
-                elif "yerelollama" in c_lower or "ollama" in c_lower:
-                    note = "🟢 Yerel RTX 5070 Ti 12GB (0 TL)"
-                elif "test" in c_lower or "runner" in c_lower:
-                    note = "🟢 Yerel Test Motoru (0 TL)"
-                elif "hermes" in c_lower:
-                    note = "🟢 Hermes Agent CLI (0 TL)"
-                elif "opencode" in c_lower:
-                    note = "🟢 OpenCode CLI (0 TL)"
-                else:
-                    note = "🟢 Açık Kaynak CLI (0 TL)"
+                label = f"🟢 `{c_name} (0 TL)`"
 
             bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=is_free)
             bar_w = render_model_quota_bar(tok_w, lim_w, is_free=is_free)
 
-            md.append(f"| `{c_name}` | {note} | {quota_str} | `{bar_5h}` | `{bar_w}` |")
+            md.append(f"| {label} | `{bar_5h}` | `{bar_w}` |")
 
         md.append("")
         md.append("---")
         md.append("")
 
-        # 4. BÖLÜM: UZMAN AJANLAR & ALT AJANLAR (Hangi Ajan Hangi Modelle ve Eforla Ne Kadar Token Harcadı)
-        md.append("### 🕵️ 4. AJANLAR & ALT AJANLAR (Hangi Ajan Hangi Model ve Eforla Token Harcadı)")
-        md.append("| Uzman Ajan ve Alt Ajan Rolü | Kullandığı Model ve Efor | Katman | 5 Saatlik Doluluk Grafiği | Haftalık Doluluk Grafiği |")
-        md.append("| :--- | :--- | :--- | :--- | :--- |")
+        # 4. BÖLÜM: AJANLAR VE KULLANDIKLARI MODELLER (Sadece 4 Sütun: Ajan | Model ve Efor | 5 Saatlik | Haftalık)
+        md.append("### 🕵️ 4. AJANLAR VE KULLANDIKLARI MODELLER")
+        md.append("| Ajan Rolü | Kullandığı Model ve Efor | 5 Saatlik Doluluk | Haftalık Doluluk |")
+        md.append("| :--- | :--- | :--- | :--- |")
 
         ag_5h_tokens = self._aggregate_agent_tokens(h5.get("_raw_events", []))
         ag_w_tokens = self._aggregate_agent_tokens(w.get("_raw_events", []))
@@ -1172,12 +1147,13 @@ class UsageTracker:
                 tok_5h = entry_5h.get("tokens", 0)
                 tok_w = entry_w.get("tokens", 0)
 
-                badge = get_model_tier_badge(tier)
+                icon = get_tier_icon(tier)
+                m_label = f"{icon} `{m_name} (0 TL)`" if is_free else f"{icon} `{m_name}`"
                 bar_5h = render_model_quota_bar(tok_5h, lim_5h, is_free=is_free)
                 bar_w = render_model_quota_bar(tok_w, lim_w, is_free=is_free)
-                md.append(f"| {ag_name} | `{m_name}` | {badge} | `{bar_5h}` | `{bar_w}` |")
+                md.append(f"| {ag_name} | {m_label} | `{bar_5h}` | `{bar_w}` |")
         else:
-            md.append("| *Henüz kayıtlı alt ajan görevi bulunmuyor.* | `-` | `-` | `[░░░░░░░░░░░░░░░░░░░░] %0.0` | `[░░░░░░░░░░░░░░░░░░░░] %0.0` |")
+            md.append("| *Henüz kayıtlı alt ajan görevi bulunmuyor.* | `-` | `[░░░░░░░░░░░░░░░░░░░░] %0.0` | `[░░░░░░░░░░░░░░░░░░░░] %0.0` |")
 
         md.append("")
         md.append("---")
