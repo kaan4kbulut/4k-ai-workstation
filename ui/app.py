@@ -26,6 +26,18 @@ user_prompt = st.text_area("İsteğini yaz:", placeholder="Örnek: Bu Python fon
 is_parallel = st.checkbox("Paralel Çalıştırma (Görevi Böl)", value=False)
 selected_model = st.selectbox("Model Seç:", ["auto", *registered_models] or ["auto"])
 
+with st.sidebar.expander("Donanım & Öneriler"):
+    try:
+        info = requests.get("http://localhost:8000/hardware/info", timeout=5).json()
+        r = requests.get("http://localhost:8000/hardware/recommend", timeout=5).json()
+        st.write("**Bilgiler:**")
+        st.json(info.get("info", {}))
+        st.write("**Önerilen Yerel Modeller:**")
+        for rec in r.get("recommendations", []):
+            st.markdown(f"- **{rec['model']}** ({rec['fit']}) — {rec['reason']}")
+    except Exception:
+        st.write("Donanım bilgisi alınamadı.")
+
 if st.button("Çalıştır"):
     if not user_prompt:
         st.warning("Lütfen bir istek yaz.")

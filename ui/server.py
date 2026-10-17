@@ -63,6 +63,48 @@ async def get_status():
     }
 
 
+@app.get("/hardware/info")
+async def hardware_info():
+    try:
+        from core.hardware import get_system_info
+
+        info = get_system_info()
+        return {
+            "status": "ok",
+            "info": {
+                "os_name": info.os_name,
+                "cpu_cores": info.cpu_cores,
+                "ram_gb": info.ram_gb,
+                "gpu_name": info.gpu_name,
+                "gpu_vram_gb": info.gpu_vram_gb,
+            },
+        }
+    except Exception as exc:
+        return {"status": "error", "detail": str(exc)}
+
+
+@app.get("/hardware/recommend")
+async def hardware_recommend():
+    try:
+        from core.hardware import get_system_info, recommend_local_models
+
+        info = get_system_info()
+        recs = recommend_local_models(info)
+        return {
+            "status": "ok",
+            "info": {
+                "cpu_cores": info.cpu_cores,
+                "ram_gb": info.ram_gb,
+                "gpu_vram_gb": info.gpu_vram_gb,
+            },
+            "recommendations": [
+                {"model": r.model, "reason": r.reason, "fit": r.fit} for r in recs
+            ],
+        }
+    except Exception as exc:
+        return {"status": "error", "detail": str(exc)}
+
+
 @app.post("/query")
 async def query_model(request: QueryRequest):
     try:
