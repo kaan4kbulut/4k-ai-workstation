@@ -416,8 +416,8 @@ class ProviderConfigAndQuotaTests(unittest.TestCase):
 
             # 1) Yeni sağlayıcı ekle
             groq_entry = {
-                "name": "Groq",
-                "base_url": "https://api.groq.com/openai/v1",
+                "name": "OpenRouterPrimary",
+                "base_url": "https://openrouter.ai/api/v1",
                 "model": "llama-3.3-70b-versatile:free",
                 "api_key": "gsk_test123",
                 "capability": 9,
@@ -426,7 +426,7 @@ class ProviderConfigAndQuotaTests(unittest.TestCase):
             }
             configs = upsert_provider_config(groq_entry, path=cfg_path)
             self.assertEqual(len(configs), 1)
-            self.assertEqual(configs[0].name, "Groq")
+            self.assertEqual(configs[0].name, "OpenRouterPrimary")
             self.assertEqual(configs[0].model, "llama-3.3-70b-versatile:free")
             self.assertEqual(configs[0].capability_score, 9)
 
@@ -447,7 +447,7 @@ class ProviderConfigAndQuotaTests(unittest.TestCase):
             self.assertEqual(len(configs_two), 2)
 
             # 4) Sağlayıcıyı sil
-            configs_after_delete = delete_provider_config("Groq", path=cfg_path)
+            configs_after_delete = delete_provider_config("OpenRouterPrimary", path=cfg_path)
             self.assertEqual(len(configs_after_delete), 1)
             self.assertEqual(configs_after_delete[0].name, "OpenRouterCustom")
 

@@ -10,6 +10,8 @@ Tamamen $0.00 maliyet garantisiyle (Yerel GPU & Ücretsiz Modeller) çalışır.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 import re
 from typing import Dict, List, Any, Optional
@@ -17,6 +19,33 @@ from typing import Dict, List, Any, Optional
 from core.router import IntelligentRouter
 from core.dispatcher import Dispatcher
 from core.workspace_builder import WorkspaceBuilder
+
+
+def dispatch_response(router, dispatcher, prompt: str, preferred_model: str = "auto") -> str:
+    """Senkron iş akışını asenkron yönlendirici ve dağıtıcıya bağlar.
+
+    Asenkron çağıranlar bu işlevi asyncio.to_thread ile çalıştırmalıdır.
+    Senkron özel adaptörler de desteklenir.
+    """
+    async def _dispatch():
+        available = list(dispatcher.wrappers)
+        ranked = router.rank_escalation_chain(prompt, available_names=available)
+        if inspect.isawaitable(ranked):
+            ranked = await ranked
+        ranked = [name for name in ranked if name in available]
+        if preferred_model != "auto":
+            if preferred_model not in available:
+                raise ValueError(f"Model kayıtlı değil: {preferred_model}")
+            ranked = [preferred_model] + [name for name in ranked if name != preferred_model]
+        result = dispatcher.dispatch_with_escalation(ranked, prompt)
+        if inspect.isawaitable(result):
+            result = await result
+        response = result.get("response", "")
+        if not response or response.startswith("Hata:"):
+            raise RuntimeError(response or "Hata: Model geçerli bir yanıt döndürmedi.")
+        return response
+
+    return asyncio.run(_dispatch())
 
 
 class SoftwareSwarm:
@@ -198,9 +227,7 @@ class SoftwareSwarm:
 
     def _dispatch_call(self, prompt: str, task_type: str = "general", preferred_model: str = "auto") -> str:
         """İsteği eskalasyon zinciri ve sıfır harcama kalkanı üzerinden güvenle çalıştırır."""
-        ranked = self.router.rank_escalation_chain(prompt, preferred_model=preferred_model)
-        result = self.dispatcher.dispatch_with_escalation(prompt, ranked)
-        return result.get("response", "")
+        return dispatch_response(self.router, self.dispatcher, prompt, preferred_model)
 
     @staticmethod
     def _extract_json(text: str) -> Optional[Dict[str, Any]]:

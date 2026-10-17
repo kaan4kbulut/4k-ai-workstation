@@ -18,6 +18,7 @@ from typing import Dict, List, Any, Optional
 from core.router import IntelligentRouter
 from core.dispatcher import Dispatcher
 from core.workspace_builder import WorkspaceBuilder
+from core.software_swarm import dispatch_response
 
 
 class AutoHealingEngine:
@@ -209,8 +210,7 @@ class AutoHealingEngine:
             "```\n"
         )
 
-        ranked = self.router.rank_escalation_chain(repair_prompt, preferred_model="auto")
-        resp = self.dispatcher.dispatch_with_escalation(repair_prompt, ranked).get("response", "")
+        resp = dispatch_response(self.router, self.dispatcher, repair_prompt)
 
         extracted = self.workspace_builder.extract_files_from_response(resp)
         repaired_files = self.workspace_builder.apply_files(workspace_dir, extracted)

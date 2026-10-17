@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import httpx
 
+from core.cost_policy import is_zero_cost_endpoint
+
 from .base_wrapper import BaseWrapper
 
 
@@ -38,27 +40,9 @@ def is_zero_cost_allowed(
     Diğer tüm ücretli / bulut API çağrıları kesinlikle engellenir.
     (Birim testlerinde kullanılan çevrimdışı MockTransport istisnadır).
     """
-    if transport is not None:
+    if isinstance(transport, httpx.MockTransport):
         return True
-
-    b = (base_url or "").lower().strip()
-    m = (model or "").lower().strip()
-
-    # 1. Yerel bağlantılar (Ollama vb.)
-    is_local = (
-        "127.0.0.1" in b
-        or "localhost" in b
-        or "::1" in b
-        or "0.0.0.0" in b
-    )
-    if is_local:
-        return True
-
-    # 2. Ücretsiz OpenRouter vb. modeller (:free)
-    if ":free" in m:
-        return True
-
-    return False
+    return is_zero_cost_endpoint(base_url, model)
 
 
 class OpenAICompatibleWrapper(BaseWrapper):
@@ -90,7 +74,7 @@ class OpenAICompatibleWrapper(BaseWrapper):
     async def execute(self, prompt: str) -> str:
         # SIFIR HARCAMA KİLİDİ: Ağa çıkmadan önce ücretli API çağrısını engelle ($0.00 Kalkanı)
         if not is_zero_cost_allowed(self.base_url, self.model_name, self._transport):
-            return "🔒 SIFIR HARCAMA KİLİDİ: Ücretli API çağrısı engellendi ($0.00 Kalkanı)."
+            return "Hata: SIFIR HARCAMA KİLİDİ: İzinli olmayan API çağrısı engellendi ($0.00 Kalkanı)."
 
         payload = {
             "model": self.model_name,
@@ -98,7 +82,10 @@ class OpenAICompatibleWrapper(BaseWrapper):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout, transport=self._transport) as client:
+            async with httpx.AsyncClient(
+                timeout=self.timeout, transport=self._transport,
+                follow_redirects=False, trust_env=False,
+            ) as client:
                 response = await client.post(
                     f"{self.base_url}/chat/completions",
                     json=payload,

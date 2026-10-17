@@ -144,14 +144,14 @@ class HermesWrapper(BaseWrapper):
             await process.wait()
             return f"Hata: Hermes {self.timeout:.0f} saniyede yanıt vermedi."
 
+        if process.returncode != 0:
+            return f"Hata: Hermes exit {process.returncode}."
+
         response, session_id = self.parse_output(stdout, stderr)
         if session_id:
             self.last_session_id = session_id
 
         if not response:
-            if process.returncode != 0:
-                detail = (stderr or b"").decode("utf-8", errors="replace").strip()
-                return f"Hata: Hermes exit {process.returncode}: {detail[:200]}"
             return "Hata: Hermes boş yanıt döndürdü."
 
         return response

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -261,7 +262,8 @@ async def handle_command_async(cmd_line: str, engine: Optional[WorkstationEngine
             print(f"   {msg}")
 
         # 1. Swarm ile Projeyi Üret
-        swarm_res = engine.software_swarm.run_full_pipeline(
+        swarm_res = await asyncio.to_thread(
+            engine.software_swarm.run_full_pipeline,
             user_goal=goal_text,
             workspace_dir=target_dir,
             model="auto",
@@ -273,7 +275,8 @@ async def handle_command_async(cmd_line: str, engine: Optional[WorkstationEngine
         # 2. Auto-Healing ile Projeyi Çalıştır ve Hataları Otomatik Onar
         print("--------------------------------------------------------------------------------")
         print("🧪 [Self-Healing & Doğrulama] Uygulama test ediliyor...")
-        heal_res = engine.auto_healing.execute_with_healing(
+        heal_res = await asyncio.to_thread(
+            engine.auto_healing.execute_with_healing,
             command=startup_cmd,
             workspace_dir=target_dir,
             timeout_seconds=8,
@@ -344,7 +347,9 @@ async def handle_command_async(cmd_line: str, engine: Optional[WorkstationEngine
 
         cmd = f"python {startup_file}"
         print(f"⚡ [Auto-Healing] '{p_name}' projesi başlatılıyor ve denetleniyor...")
-        heal_res = engine.auto_healing.execute_with_healing(cmd, p_path, timeout_seconds=10)
+        heal_res = await asyncio.to_thread(
+            engine.auto_healing.execute_with_healing, cmd, p_path, timeout_seconds=10
+        )
 
         if heal_res["success"]:
             return f"✅ '{p_name}' projesi hatasız çalıştırıldı!\nÇıktı:\n{heal_res.get('stdout', '')}"

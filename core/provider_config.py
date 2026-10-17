@@ -31,6 +31,8 @@ import os
 import sys
 from dataclasses import dataclass
 
+from core.cost_policy import is_local_endpoint, is_zero_cost_endpoint
+
 from wrappers.openai_compatible_wrapper import OpenAICompatibleWrapper
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -71,21 +73,8 @@ def is_provider_zero_cost_allowed(
     Sıfır API Harcaması Kalkanı:
     Maliyeti 0'dan büyük olan veya yerel olmayıp :free taşımayan sağlayıcıları reddeder.
     """
-    if cost > 0.0:
-        return False
-    b = (base_url or "").lower().strip()
-    m = (model or "").lower().strip()
-    is_local_url = (
-        "127.0.0.1" in b
-        or "localhost" in b
-        or "::1" in b
-        or "0.0.0.0" in b
-    )
-    if is_local or is_local_url:
-        return True
-    if ":free" in m:
-        return True
-    return False
+    # Yapılandırmadaki local=True uzak bir adresi yerel yapmaz.
+    return is_zero_cost_endpoint(base_url, model, cost)
 
 
 def parse_providers(data: dict) -> list[ProviderConfig]:
@@ -111,7 +100,7 @@ def parse_providers(data: dict) -> list[ProviderConfig]:
                 timeout=float(raw.get("timeout", 120)),
                 capability_score=int(raw.get("capability", 6)),
                 cost_per_token=0.0,
-                is_local=is_local,
+                is_local=is_local_endpoint(base_url),
                 strengths=tuple(raw.get("strengths", [])),
             )
         )
@@ -162,7 +151,7 @@ def upsert_provider_config(entry: dict, path: str | None = None) -> list[Provide
     if not is_provider_zero_cost_allowed(base_url, model, cost, is_local):
         raise ValueError(
             "🔒 SIFIR HARCAMA KİLİDİ: Ücretli sağlayıcı eklenemez ($0.00 Kalkanı). "
-            "Yalnızca yerel veya model adında ':free' bulunan 0 TL modeller kabul edilir."
+            "Yalnızca gerçek yerel adresler veya resmî OpenRouter ':free' modelleri kabul edilir."
         )
 
     entry["cost"] = 0.0  # Zorunlu sıfır maliyet

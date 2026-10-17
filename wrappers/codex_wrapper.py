@@ -150,6 +150,9 @@ class CodexWrapper(BaseWrapper):
                 await process.wait()
                 return f"Hata: Codex {self.timeout:.0f} saniyede yanıt vermedi."
 
+            if process.returncode != 0:
+                return f"Hata: Codex exit {process.returncode}."
+
             last_msg = None
             if os.path.exists(out_path):
                 try:
@@ -160,9 +163,6 @@ class CodexWrapper(BaseWrapper):
 
             response = self.parse_output(stdout, stderr, last_msg)
             if not response:
-                if process.returncode != 0:
-                    detail = (stderr or b"").decode("utf-8", errors="replace").strip()
-                    return f"Hata: Codex exit {process.returncode}: {detail[:200]}"
                 return "Hata: Codex boş yanıt döndürdü."
 
             return response

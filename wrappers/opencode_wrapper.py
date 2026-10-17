@@ -126,11 +126,11 @@ class OpenCodeWrapper(BaseWrapper):
             await process.wait()
             return f"Hata: OpenCode {self.timeout:.0f} saniyede yanıt vermedi."
 
+        if process.returncode != 0:
+            return f"Hata: OpenCode exit {process.returncode}."
+
         response = self.parse_output(stdout, stderr)
         if not response:
-            if process.returncode != 0:
-                detail = (stderr or b"").decode("utf-8", errors="replace").strip()
-                return f"Hata: OpenCode exit {process.returncode}: {detail[:200]}"
             return "Hata: OpenCode boş yanıt döndürdü."
 
         return response

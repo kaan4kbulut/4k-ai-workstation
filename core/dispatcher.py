@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import os
 from typing import Any, Dict, List
 from wrappers.base_wrapper import BaseWrapper
@@ -22,11 +23,21 @@ class Dispatcher:
         if target_wrapper_name not in self.wrappers:
             return f"Hata: {target_wrapper_name} wrapper'ı kayıtlı değil."
 
+        if workspace is not None and not os.path.isdir(workspace):
+            return "Hata: Çalışma dizini bulunamadı."
+        # Wrapper'lar kayıt defterinde paylaşılır; çağrıya özel dizin oraya yazılmaz.
         wrapper = self.wrappers[target_wrapper_name]
-        if workspace and os.path.isdir(workspace):
+        if workspace is not None or hasattr(wrapper, "workspace"):
+            wrapper = copy.copy(wrapper)
             setattr(wrapper, "workspace", workspace)
         print(f"[Dispatcher] İstek gönderiliyor: {wrapper.name}...")
-        return await wrapper.execute(prompt)
+        response = await wrapper.execute(prompt)
+        if not isinstance(response, str) or not response.strip():
+            return "Hata: Araç geçerli bir metin yanıtı döndürmedi."
+        response = response.strip()
+        if response.startswith("🔒 SIFIR HARCAMA"):
+            return f"Hata: {response}"
+        return response
 
     async def dispatch_with_escalation(
         self,
@@ -35,10 +46,8 @@ class Dispatcher:
         workspace: str | None = None,
     ) -> Dict[str, Any]:
         """Aday modelleri sırayla dener; ilk model hata verirse bir üst modele yükseltir (escalation)."""
-        attempts: List[Dict[str, str]] = []
+        attempts: List[Dict[str, Any]] = []
         valid_candidates = [m for m in candidate_models if m in self.wrappers]
-        if not valid_candidates and self.wrappers:
-            valid_candidates = [next(iter(self.wrappers.keys()))]
 
         for model_name in valid_candidates:
             try:
@@ -66,7 +75,7 @@ class Dispatcher:
             )
             print(f"[Dispatcher] {model_name} başarısız oldu, bir üst modele yükseltiliyor...")
 
-        last_model = valid_candidates[-1] if valid_candidates else "Ollama"
+        last_model = valid_candidates[-1] if valid_candidates else "none"
         last_err = attempts[-1].get("detail", "Hata: Kullanılabilir model bulunamadı.") if attempts else "Hata: Model yok."
         return {
             "model": last_model,
@@ -77,7 +86,7 @@ class Dispatcher:
 
     async def dispatch_parallel(self, target_wrappers: List[str], prompt: str) -> Dict[str, str]:
         tasks = {
-            name: self.wrappers[name].execute(prompt)
+            name: self.dispatch(name, prompt)
             for name in target_wrappers
             if name in self.wrappers
         }

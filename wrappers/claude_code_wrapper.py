@@ -133,11 +133,11 @@ class ClaudeCodeWrapper(BaseWrapper):
             await process.wait()
             return f"Hata: Claude Code {self.timeout:.0f} saniyede yanıt vermedi."
 
+        if process.returncode != 0:
+            return f"Hata: Claude Code exit {process.returncode}."
+
         response = self.parse_output(stdout, stderr)
         if not response:
-            if process.returncode != 0:
-                detail = (stderr or b"").decode("utf-8", errors="replace").strip()
-                return f"Hata: Claude Code exit {process.returncode}: {detail[:200]}"
             return "Hata: Claude Code boş yanıt döndürdü."
 
         return response

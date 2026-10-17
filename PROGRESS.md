@@ -1,5 +1,19 @@
 # 4K AI WORKSTATION - Proje İlerlemesi
 
+## 17 Ekim 2026 — Çalışma düzeni incelemesi ve sınırlı onarım
+
+- CLI süreçleri hata koduyla çıktığında stdout dolu olsa bile artık başarılı sayılmıyor; süreç hata metinleri yanıta taşınmıyor.
+- Dispatcher görev dizinini paylaşılan wrapper üzerinde kalıcı değiştirmiyor; bilinmeyen adayda başka aracı sessizce çağırmıyor.
+- Asenkron router/dispatcher çağrılarının senkron yazılım üretimi ve onarım akışlarına bağlantısı düzeltildi; CLI bu işleri ayrı iş parçacığında yürütüyor.
+- Ek API harcaması politikası ortak URL ayrıştırmasına taşındı. Uzak bir adreste localhost metni veya local=True kullanmak izin sağlamıyor. :free yalnızca resmî HTTPS OpenRouter API adresinde kabul ediliyor; gerçek HTTP taşıyıcısı test istisnası sayılmıyor.
+- Mevcut 102 çevrimdışı teste 17 regresyon testi eklendi; toplam **119 test geçti**. Bunlar canlı hesap/abonelik entegrasyon testi değildir.
+- Antigravity CLI incelemesinde bu profilde plugin/MCP kaydı bulunmadı; beceri ve global talimat dosyaları mevcut. Yeni Antigravity eklentisi veya MCP kaydı kurulmadı.
+- MCP SDK 1.30.0 yalnız mevcut sanal ortama hazırlık sırasında kuruldu; aşağıdaki ürün akışlarına bağlanmadı, zorunlu requirements bağımlılığı yapılmadı.
+- Kullanıcının son yönlendirmesi: önce araçtan bağımsız geliştirme ortamını karşılaştırıp hazırlamak, sonra ürün geliştirmesine başlamak. Yeni ürün yeteneği çalışmaları bu karara göre bekliyor.
+- Bilinen açık işler: gerçek/tahmini kota ayrımı, hesap hazırlığı, yeni ve henüz izlenmeyen agentic_brain dosyasındaki çağrı/çalışma alanı davranışları, oto akışında onarım/timeout başarı gösteriminin ayrıştırılması. Önceden mevcut izlenmeyen dosyalar değiştirilmedi.
+
+Aşağıdaki eski %100 tamamlandı ifadeleri, bu incelemenin canlı entegrasyon doğrulaması olarak yorumlanmamalı.
+
 ## 📌 Mevcut Durum
 - **Durum:** Faz 1, Faz 2, Faz 3, Faz 4, Faz 5 ve Canlı Ekosistem & Otomatik Eskalasyon fazlarının tamamı başarıyla tamamlandı ve doğrulandı.
 - **Tamamlanma Oranı:** %100 (Çekirdek Platform + Çoklu CLI Abonelik Ajanları + Donanım/Benchmark + Librarian + Tech Scout + Canlı Ağ Entegrasyonları + Alt Ajan Doğrulaması)
