@@ -1,175 +1,208 @@
-# 🚀 4K AI WORKSTATION
+# 🚀 4K AI WORKSTATION: Living AI Engineering Workstation & 5-CLI Ecosystem
 
-**4K AI WORKSTATION**, yerel yapay zeka modelleri (**Ollama**), bulut API sağlayıcıları (**OpenRouter**, **HuggingFace**, **Perplexity**, **OpenAI**, **Groq**) ve işletim sisteminde kurulu abonelik tabanlı CLI ajanlarını (**Hermes**, **OpenAI Codex**, **Claude Code**, **OpenCode**, **Antigravity**) tek bir çatı altında birleştiren, kendi kendine yeten akıllı yapay zeka orkestrasyon platformudur.
-
----
-
-## 🌟 Tamamlanan Çekirdek Sistemler
-
-4K AI WORKSTATION, çoklu yapay zeka modelleri ve otonom CLI ajanları arasında kesintisiz işbirliği sağlayan 6 ana mimari sistem üzerine inşa edilmiştir:
-
-### 1. 🧠 LLM Görev Parçalayıcı & Mixture-of-Agents (MoA) Sentezleyici
-- **Modüller:** `core/planner.py` & `core/parallel_executor.py`
-- **LLM Destekli Parçalama (`decompose_with_llm`):** Kullanıcıdan gelen karmaşık istekleri (örneğin "Mikroservis mimarisi kur, kodla ve dokümante et") aktif bir LLM yardımıyla JSON şemasında 2-5 bağımsız alt göreve (`architecture`, `code`, `search`, `docs`) böler. Çevrimdışı durumlarda kural tabanlı yapısal ayrıştırıcıya güvenle geri düşer.
-- **Paralel Yürütme (`run_parallel`):** Her alt görevi zorluk derecesi, görev etiketi ve maliyetine göre en uygun modele eşzamanlı (`asyncio.gather`) dağıtır.
-- **MoA Sentezleyici (`synthesize_results`):** Farklı modeller tarafından üretilen alt görev yanıtlarını üst seviye bir sentezleyici model (Aggregator) üzerinden geçirerek tekrarsız, tutarlı ve eksiksiz tek bir Türkçe nihai yanıta dönüştürür.
-
-### 2. 🛡️ Otomatik Eskalasyon Zinciri (Automatic Escalation & Failover)
-- **Modüller:** `core/router.py` & `core/dispatcher.py`
-- **Hiyerarşik Sıralama (`rank_escalation_chain`):** Bir görev için en uygun birincil modelden başlayarak, yetenek ve kota kriterlerine göre sıralı bir eskalasyon zinciri oluşturur.
-- **Kesintisiz Geçiş (`dispatch_with_escalation`):** İstek gönderilen ilk model hata verir, zaman aşımına uğrar veya kota sınırına takılırsa süreç kesilmez; sistem isteği otomatik olarak zincirdeki bir sonraki üst seviye modele yükseltir (failover). Hangi modellerin denendiği `attempts` dizisiyle şeffaf şekilde raporlanır.
-
-### 3. 📚 Canlı OpenRouter & HuggingFace Tarayan Librarian (Model Kütüphanecisi)
-- **Modül:** `core/librarian.py`
-- **Canlı OpenRouter Taraması (`fetch_openrouter_free_models`):** OpenRouter genel API'sini (`/api/v1/models`) canlı sorgulayarak sıfır maliyetli (`:free`, 0 prompt/completion ücreti) güncel bulut modellerini, bağlam uzunluklarını ve yeteneklerini kataloğa dahil eder.
-- **Canlı HuggingFace Taraması (`fetch_huggingface_trending_models`):** Hugging Face Model Hub üzerinden son 7 günün en popüler GGUF modellerini beğeni ve indirme istatistikleriyle birlikte listeler.
-- **Dinamik Puanlama & Donanım Filtresi:** Modelleri Kodlama, Akıl Yürütme, Sohbet, Hız ve Maliyet Verimliliği eksenlerinde puanlar; yerel GPU VRAM ve sistem RAM kapasitesine göre filtreler.
-
-### 4. 🔭 Canlı GitHub Tarayan Tech Scout (Teknoloji Gözcüsü)
-- **Modül:** `core/tech_scout.py`
-- **Canlı Trend Keşfi (`fetch_trending_ai_repos`):** GitHub API üzerinden son 30 gün içinde yıldız alan açık kaynak AI orkestrasyon, otonom ajan ve LLM araçlarını canlı tarar.
-- **Kişiselleştirilmiş Sistem İyileştirme:** Bilgisayarın gerçek donanımını (örneğin RTX 5070 Ti 12 GB VRAM) ve kurulu CLI araçlarını analiz ederek, atıl kalan kaynaklar için eyleme dönüştürülebilir terminal komutları (`ollama pull qwen2.5-coder:14b`, CLI kurulum komutları) önerir.
-
-### 5. ⚡ Gerçek LLM Token/sn Benchmark & Tek Tıkla Model İndirme
-- **Modül:** `core/benchmark.py`
-- **Canlı LLM Hız Testi (`llm_benchmark`):** Yerel Ollama sunucusunda çalışan modeller üzerinde gerçek üretim hızı (**Tokens/saniye**), **İlk Token Süresi (TTFT ms)** ve **Toplam Yanıt Süresi (ms)** ölçümü yapar.
-- **Tek Tıkla Model İndirme (`pull_ollama_model`):** Donanım ve Librarian önerileri doğrultusunda Ollama arka planına (`/api/pull`) model indirme komutunu gönderir.
-- **Sistem Performans Testi:** İşlemci matematiksel işlem gücü (`cpu_score`) ve disk okuma/yazma hızını (`disk_io_score`) 1-100 ölçeğinde puanlar.
-
-### 6. 💬 Çok Turlu Sohbet Hafızası ve Arayüzden Sağlayıcı/Kota Yönetimi
-- **Modüller:** `core/session_memory.py`, `core/provider_config.py`, `core/quota_manager.py`
-- **Kalıcı Oturum Hafızası (`SessionMemory`):** Kullanıcı konuşmalarını oturum kimliği (`session_id`) bazında `data/sessions.json` dosyasında saklar; yeni istemlere önceki turları bağlam olarak otomatik ekler (`build_contextual_prompt`).
-- **Dinamik Sağlayıcı Yönetimi:** OpenRouter, HuggingFace, Perplexity, OpenAI, Groq gibi OpenAI-uyumlu sağlayıcıları sunucuyu yeniden başlatmadan API veya arayüz üzerinden ekleme, güncelleme ve silme imkanı sağlar (`config/providers.json`).
-- **Granüler Kota Yönetimi:** Model bazında günlük istek kotalarını belirleme, kalan kullanım haklarını izleme ve tek tıkla sayaç sıfırlama desteği sunar (`data/quotas.json`).
-
-### 7. 🏗️ Otomatik Proje/Dosya İnşa Motoru (Workspace Builder)
-- **Modül:** `core/workspace_builder.py`
-- **Otomatik Proje Üretimi (`POST /workspace/build`):** Kullanıcı istemlerini ve mimari gereksinimleri analiz ederek tam ve çalışır projeler üretir.
-- **Çoklu Dosya Ayrıştırma (`extract_files_from_response`):** `### FILE: <path>` veya JSON formatındaki LLM yanıtlarını ayrıştırır ve hedef çalışma alanına (`workspace`) güvenle yazar.
+**4K AI WORKSTATION**, yerel yapay zeka motoru (**RTX 5070 Ti 12 GB VRAM üzerinde Ollama**), 5 büyük yapay zeka CLI kodlama ve ajan sistemi (**Antigravity**, **Claude Code**, **Codex CLI**, **OpenCode**, **Hermes**), 19 araçlı **`free-ai-hub` MCP Sunucusu** ve **$0.00 Sıfır API Harcaması Kalkanı** ile çalışan, kendi kendine yeten açık kaynak bir yapay zeka mühendislik ekosistemidir.
 
 ---
 
-## 📂 Proje Dizin Yapısı
+## 🔒 Kırmızı Çizgi: $0.00 API Harcaması Kalkanı (Zero API Spend Shield)
+
+4K AI WORKSTATION mimarisinin tavizsiz temel ilkesidir:
+- **SIFIR KULLANDIKÇA ÖDE / BAKİYELİ HARCAMA:** Sistem asla ve asla bakiye tüketen veya kredi kartı gerektiren ücretli API anahtarları üzerinden harcama yapmaz.
+- **%100 ÜCRETSİZ KAYNAKLAR:** Tüm bulut çıkarımları yalnızca OpenRouter `:free` etiketli modeller ve yerel RTX 5070 Ti donanımında çalışan açık kaynaklı Ollama modelleri üzerinden yürütülür.
+- **SABİT CLI ABONELİK KORUMASI:** Kullanıcının mevcut masaüstü abonelikleri (`Claude Code`, `Codex`, `Antigravity`), CLI oturumu modunda (ekstra 1 kuruş bile fatura edilmeden) çalıştırılır.
+
+---
+
+## 🏛️ 5-CLI Birleşik Orkestrasyon Mimarisi & 3 Katmanlı İşçi Havuzu
+
+Sistem, gelen görevleri tek bir modele yükleyerek kota veya donanım darboğazı yaratmak yerine, 3 katmanlı akıllı işçi havuzuna modüler olarak paylaştırır:
+
+```mermaid
+flowchart TD
+    User["Kullanıcı İsteği / Fikir"] --> Brain["Antigravity / 4K Workstation Yönetici Beyin"]
+    
+    subgraph Katman3["🔴 Katman 3: Uzman Katman (Başmimar & Güvenlik)"]
+        Claude["Claude Code CLI (claude -p)"]
+        AgyPro["Antigravity Pro Ajanı"]
+    end
+
+    subgraph Katman2["🟡 Katman 2: Hızlı Kodlama & Uygulama"]
+        Codex["Codex CLI (codex exec)"]
+        OpenCode["OpenCode CLI (opencode run)"]
+        AgyFlash["Antigravity Flash Paralel Ajanları"]
+    end
+
+    subgraph Katman1["🟢 Katman 1: Sıfır Maliyet & Hafif İşler (0 TL)"]
+        OllamaLocal["Yerel Ollama (RTX 5070 Ti 12GB)"]
+        HermesCLI["Hermes CLI (Headless Ajan)"]
+        OpenRouterFree["OpenRouter :free Bulut Modelleri"]
+        AgyFlashLite["Antigravity Flash-Lite Ajanları"]
+    end
+
+    Brain --> Katman3
+    Brain --> Katman2
+    Brain --> Katman1
+
+    Katman1 --> MCPServer["19 Araçlı free-ai-hub MCP Sunucusu"]
+    Katman2 --> MCPServer
+    Katman3 --> MCPServer
+    
+    MCPServer --> Consensus["MoA Konsensusu & Critic-Refiner Doğrulaması"]
+    Consensus --> FinalResult["Eksiksiz Çalışan Çıktı & Doğrulanmış Kod"]
+```
+
+### 🟢 Katman 1: Ücretsiz / 0 Kota (Hafif & Standart İşler)
+* **Hedef Araçlar:** Yerel Ollama (`qwen2.5-coder:14b`, `llama3`), OpenRouter `:free` modelleri, `Hermes CLI`, Antigravity `flash_lite` alt ajanları.
+* **Kullanım Alanları:** Canlı web araştırması, dokümantasyon, docstring yazımı, regex desenleri, JSON/YAML şablonları, rutin yardımcı betikler ve veri dönüştürme.
+
+### 🟡 Katman 2: Çok Düşük Kota & Yüksek Hız (Orta Düzey Kodlama & Test)
+* **Hedef Araçlar:** Paralel Antigravity `flash` alt ajanları (3-5 eşzamanlı işçi), `OpenCode CLI`, `Codex CLI` (ChatGPT masaüstü oturumu).
+* **Kullanım Alanları:** Kullanıcı arayüzü (UI) bileşenleri, REST API uç noktaları, CRUD operasyonları, birim (unit) ve entegrasyon testleri, mock veri üretimi, modül refactoring.
+
+### 🔴 Katman 3: Uzman Katman (Sadece Ağır Mimari & Kritik Hata Ayıklama)
+* **Hedef Araçlar:** `Claude Code CLI` (`claude -p`), Antigravity `pro` alt ajanı.
+* **Kullanım Alanları:** Çok katmanlı sistem mimarisi, veri tabanı şema tasarımı, güvenlik protokolleri, döngüye giren zorlu hataların çözümü, performans optimizasyonu.
+
+---
+
+## ⚡ 19 Araçlı `free-ai-hub` MCP Sunucusu (v2.0 Ultimate)
+
+`wrappers/opencode_free_hub_mcp.py` dosyası, Model Context Protocol (MCP) standardında çalışan ve hem `OpenCode` hem `Claude Code` hem de harici ajanlara hizmet veren 19 özel araç sunar:
+
+| Araç Adı | Açıklama |
+|---|---|
+| `moa_consensus_engine` | Farklı ücretsiz modelleri (Pollinations, OpenRouter :free, Yerel Llama 3) aynı probleme koşturup sentezleyerek ortak konsensus üretir. |
+| `critic_refiner_loop` | Yazılan kodu otomatik eleştiren (Critic) ve güvenlik açıklarını/hatalarını gideren (Refiner) otonom kalite döngüsü. |
+| `repo_ast_map` | Kod tabanını context token harcamadan Python AST (Abstract Syntax Tree) ile analiz edip sınıfları, fonksiyonları ve importları 0 TL ile haritalar. |
+| `cross_cli_orchestrator` | 5 CLI aracı (`agy`, `claude`, `codex`, `opencode`, `hermes`) arasında görev devri ve çapraz tetikleme sağlar. |
+| `hardware_model_curator` | Yerel GPU VRAM (RTX 5070 Ti 12GB) durumuna göre en verimli modelleri (7B-14B Sweet Spot) seçer ve önerir. |
+| `smart_auto_router` | İstem türünü (kod, analiz, sohbet, araştırma) analiz ederek en uygun sıfır maliyetli araca dinamik yönlendirir. |
+| `subscription_cli_bridge` | Sistemdeki CLI abonelik araçlarının kurulu ve hazır olup olmadığını denetler. |
+| `free_web_search` | DuckDuckGo HTML / Instant Search üzerinden 0 TL canlı internet araması yapar. |
+| `free_url_reader` | Web sayfalarını ve dokümantasyonları okuyup saf markdown metnine dönüştürür. |
+| `offline_code_validator` | Yazılan Python kodunun sözdizimini (syntax) AST parse ile çevrimdışı denetler. |
+| `multi_model_synthesizer` | Farklı alt ajanlardan gelen parça çıktıları tek bir akıcı Türkçe rapora sentezler. |
+| `system_health_telemetry` | CPU, RAM, VRAM ve anlık çalışma parametrelerini takip eder. |
+| *(Ek 7 Yardımcı Araç)* | Dosya yönetimi, JSON formatlama, oturum geçmişi ve telemetri destek araçları. |
+
+---
+
+## 🔭 Otonom Evrim Motoru & Teknoloji Gözcüsü (`core/tech_scout.py`)
+
+Workstation, durağan bir sistem değildir; yapay zeka dünyasındaki gelişmeleri sürekli canlı takip eden **`ContinuousEvolutionEngine`** motorunu içerir:
+
+```powershell
+.\.venv\Scripts\python.exe -m core.tech_scout
+```
+
+Bu komut çalıştırıldığında 4 canlı radar eşzamanlı olarak devreye girer:
+1. **🟢 OpenRouter Canlı :free Model Radarı:** API üzerinden yeni çıkan `0.00 TL` etiketli modelleri, bağlam uzunluklarını (1M token'a varan) ve yeteneklerini keşfeder.
+2. **🧠 Hugging Face & Ollama Trend Model Radarı:** RTX 5070 Ti (12 GB VRAM) donanımı için en verimli **Sweet Spot (7B - 14B)** modelleri (`qwen2.5-coder:14b`, `deepseek-r1:14b`, `qwen2.5-coder:7b`, `llama3.1:8b`, `phi4:14b`) denetler; yerel kurulum durumlarını raporlar.
+3. **🌐 GitHub Açık Kaynak AI & MCP Eklenti Radarı:** GitHub API üzerinden en güncel MCP sunucularını, CLI araçlarını ve MoA kütüphanelerini canlı tarar.
+4. **🖥️ 5-CLI Sürüm & Sağlık Denetçisi:** Sistemdeki `Antigravity`, `Claude Code`, `Codex`, `OpenCode`, `Hermes` ve `Ollama` araçlarının sürümlerini ve çalışabilirlik durumlarını test eder.
+
+Sonuçlar terminalde şık ve kutulu bir Türkçe dashboard olarak sunulurken, eşzamanlı olarak `data/tech_evolution_report.json` ve `data/model_catalog.json` kataloglarına otomatik işlenir.
+
+---
+
+## 🛡️ Sıfır Abonelik Kesintisiz Çalışma Sigortası & Auto-Healing
+
+- **Kesintisiz Geri Çekilme:** Herhangi bir bulut sağlayıcısının kotası bittiğinde süreç durmaz; sistem otomatik olarak yerel RTX 5070 Ti (12GB) üzerinde koşan `qwen2.5-coder:14b` ve `llama3` modellerine geri çekilir (failover).
+- **Auto-Healing Döngüsü (`core/auto_healing.py`):** Kod üretildikten sonra arka planda test edilir. Bir hata veya istisna oluşursa kullanıcıya sormadan logları inceler, hatanın kaynağını tespit eder, dosyayı günceller ve tekrar doğrular.
+
+---
+
+## 📂 Proje Dizin Mimarisi
 
 ```text
 nexus_ai_studio/
-├── config/
-│   ├── providers.json               # Aktif harici API sağlayıcıları (OpenRouter, Groq vb.)
-│   └── providers.example.json       # Örnek sağlayıcı şablonu
+├── configs/                         # Temiz, gizli anahtarsız orkestrasyon şablonları
+│   ├── CLAUDE.md                    # Claude Code ($0.00 Shield & Katman 3 kural seti)
+│   ├── CODEX_AGENTS.md              # Codex CLI (Katman 2 Hızlı Uygulama kuralları)
+│   ├── GEMINI.md                    # Antigravity Yönetici Kural Seti & Protokolü
+│   ├── HERMES_SOUL.md               # Hermes 0 TL Ajan Ruhu ve Kimliği
+│   ├── HERMES_SKILL.md              # Hermes Workstation API Entegrasyon Skill'i
+│   └── opencode.template.json       # OpenCode temiz yapılandırma şablonu
 ├── core/
-│   ├── benchmark.py                 # CPU/Disk testi, gerçek LLM Token/sn testi ve model indirme
-│   ├── cli_registry.py              # Sistemde kurulu CLI ajanlarının otomatik keşfi
-│   ├── dispatcher.py                # İstek dağıtıcı ve otomatik eskalasyon yöneticisi
-│   ├── hardware.py                  # Win11 GlobalMemoryStatusEx RAM & GPU VRAM tespiti
-│   ├── librarian.py                 # Model kütüphanecisi, OpenRouter & HF canlı tarayıcısı
+│   ├── agentic_brain.py             # Canlı internet araması ve ReAct ajan aklı
+│   ├── auto_healing.py              # Kendi kendini onaran otonom yazılım fabrikası
+│   ├── benchmark.py                 # Gerçek LLM Token/sn testi ve Ollama model indirme
+│   ├── cli_registry.py              # 5-CLI araçlarının otomatik tespiti ve kaydı
+│   ├── dispatcher.py                # İstek dağıtıcı ve otomatik eskalasyon zinciri
+│   ├── hardware.py                  # GPU VRAM ve RAM kapasitesi tespiti
+│   ├── librarian.py                 # OpenRouter & HF canlı model kütüphanecisi
 │   ├── parallel_executor.py         # Paralel yürütücü & Mixture-of-Agents sentezleyici
-│   ├── planner.py                   # LLM destekli görev parçalayıcı (Task Decomposer)
-│   ├── provider_config.py           # Dinamik sağlayıcı yükleme, ekleme ve silme
-│   ├── quota_manager.py             # Kalıcı model kullanım ve kota yönetimi
-│   ├── router.py                    # Akıllı yönlendirici ve eskalasyon zinciri üretici
-│   ├── session_memory.py            # Çok turlu oturum ve konuşma geçmişi hafızası
-│   └── tech_scout.py                # Sistem analizi ve canlı GitHub AI kütüphane gözcüsü
+│   ├── planner.py                   # LLM destekli modüler görev parçalayıcı
+│   ├── quota_manager.py             # Model kullanım ve kota takip yöneticisi
+│   ├── router.py                    # Akıllı yönlendirici ve maliyet/yetenek matrisi
+│   ├── session_memory.py            # Çok turlu sohbet geçmişi hafızası
+│   └── tech_scout.py                # Otonom Evrim Motoru & 4 Canlı Teknoloji Radarı
+├── data/
+│   ├── model_catalog.json           # Puanlanmış ve güncel model kataloğu
+│   ├── tech_evolution_report.json   # Canlı evrim ve ekosistem denetim raporu
+│   └── quotas.json                  # Model kullanım kotaları
 ├── ui/
 │   ├── server.py                    # FastAPI REST API arka uç sunucusu (:8000)
 │   └── app.py                       # Streamlit etkileşimli kontrol paneli (:8501)
 ├── wrappers/
-│   ├── base_wrapper.py              # Temel soyut wrapper sınıfı
-│   ├── ollama_wrapper.py            # Yerel Ollama REST API sarmalayıcısı
-│   ├── hermes_wrapper.py            # Hermes CLI headless sarmalayıcısı
-│   ├── codex_wrapper.py             # OpenAI Codex CLI (`codex exec`) sarmalayıcısı
+│   ├── base_wrapper.py              # Temel soyut CLI ve API sarmalayıcısı
 │   ├── claude_code_wrapper.py       # Claude Code CLI (`claude -p`) sarmalayıcısı
+│   ├── codex_wrapper.py             # OpenAI Codex CLI (`codex exec`) sarmalayıcısı
+│   ├── hermes_wrapper.py            # Hermes CLI headless sarmalayıcısı
+│   ├── ollama_wrapper.py            # Yerel Ollama REST sarmalayıcısı
+│   ├── opencode_free_hub_mcp.py     # 19 Araçlı Ultimate MCP Sunucusu
 │   ├── opencode_wrapper.py          # OpenCode CLI (`opencode run`) sarmalayıcısı
-│   └── openai_compatible_wrapper.py # Genel OpenAI-uyumlu bulut sarmalayıcısı
-├── tests/                           # Kapsamlı çevrimdışı birim testleri (51 test)
+│   └── openai_compatible_wrapper.py # Genel OpenAI-uyumlu sağlayıcı sarmalayıcısı
+├── tests/                           # 119 adet kapsamlı birim ve entegrasyon testi
+├── 4k.bat                           # Workstation CLI hızlı başlatıcı
 ├── setup.ps1                        # Sanal ortam kurulum ve doğrulama betiği
-└── run.ps1                          # Backend ve Dashboard tek komut başlatıcı
+└── run.ps1                          # Backend ve Dashboard başlatıcı
 ```
 
 ---
 
 ## 🔌 RESTful API Uç Noktaları
 
-4K AI WORKSTATION arka uç sunucusu (`http://127.0.0.1:8000`) aşağıdaki kapsamlı REST API arayüzünü sunar:
+4K AI WORKSTATION arka ucu (`http://127.0.0.1:8000`) üzerinden tam programatik erişim sağlar:
 
-### 1. Sistem ve Durum
 | Yöntem | Uç Nokta | Açıklama |
 |---|---|---|
-| `GET` | `/health` | Sunucu sağlık durumunu döndürür (`{"status": "ok"}`). |
-| `GET` | `/status` | Çevrimiçi durum, kayıtlı model listesi, kotalar ve oturum listesini döndürür. |
-
-### 2. Yürütme ve Akıllı Orkestrasyon
-| Yöntem | Uç Nokta | Parametreler & Gövde | Açıklama |
-|---|---|---|---|
-| `POST` | `/query` | `QueryRequest`: `{ "prompt": str, "model": "auto"\|str, "parallel": bool, "synthesize": bool, "use_llm_planner": bool, "session_id": str, "use_memory": bool, "workspace": str }` | İstekleri akıllı yönlendirici, otomatik eskalasyon, LLM tabanlı paralel parçalama ve MoA sentezleme ile işler. |
-
-### 3. CLI Ajanları & Abonelikler
-| Yöntem | Uç Nokta | Açıklama |
-|---|---|---|
-| `GET` | `/cli/tools` | Sistemde kurulu olan ve desteklenen CLI ajanlarının (Hermes, Codex, Claude Code, OpenCode) durumunu listeler. |
-
-### 4. Sağlayıcı (Provider) Yönetimi
-| Yöntem | Uç Nokta | Parametreler & Gövde | Açıklama |
-|---|---|---|---|
-| `GET` | `/providers` | - | Aktif OpenAI-uyumlu sağlayıcıları listeler. |
-| `POST` | `/providers` | `ProviderUpsertRequest`: `{ "name", "base_url", "model", "api_key", "capability", "cost", "strengths" }` | Yeni sağlayıcı ekler veya günceller; çalışma zamanında hemen aktifleştirir. |
-| `DELETE` | `/providers/{name}` | URL path: `name` | Belirtilen sağlayıcıyı sistemden ve yapılandırmadan kaldırır. |
-
-### 5. Kota Yönetimi
-| Yöntem | Uç Nokta | Parametreler & Gövde | Açıklama |
-|---|---|---|---|
-| `POST` | `/quotas/limit` | `QuotaLimitRequest`: `{ "model": str, "limit": int }` | Belirli bir modelin günlük kota limitini ayarlar. |
-| `POST` | `/quotas/reset` | `QuotaResetRequest`: `{ "model": str \| null }` | Belirli bir modelin veya tüm modellerin kota sayacını sıfırlar. |
-
-### 6. Sohbet Hafızası & Oturumlar
-| Yöntem | Uç Nokta | Açıklama |
-|---|---|---|
-| `GET` | `/sessions` | Kayıtlı tüm oturum kimliklerini listeler. |
-| `GET` | `/sessions/{session_id}` | Belirtilen oturumun konuşma geçmişini döndürür. |
-| `DELETE` | `/sessions/{session_id}` | Belirtilen oturumun hafıza geçmişini temizler. |
-
-### 7. Donanım & Benchmark
-| Yöntem | Uç Nokta | Açıklama |
-|---|---|---|
-| `GET` | `/hardware/info` | CPU çekirdeği, gerçek RAM (GB) ve GPU VRAM (GB) değerlerini döndürür. |
-| `GET` | `/hardware/recommend` | Donanıma en uygun yerel model önerilerini döndürür. |
-| `GET` | `/hardware/benchmark` | CPU ve Disk G/Ç sentetik hız skorlarını (1-100) döndürür. |
-| `POST` | `/hardware/llm-benchmark` | `{ "model": "llama3" }` — Yerel model için gerçek **Token/saniye**, **TTFT** ve gecikme testi yapar. |
-| `POST` | `/hardware/pull-model` | `{ "model": "qwen2.5-coder:14b" }` — Modeli arka planda Ollama'ya indirme isteği gönderir. |
-
-### 8. Model Kütüphanecisi (Librarian) & Teknoloji Gözcüsü (Tech Scout)
-| Yöntem | Uç Nokta | Query Parametreleri | Açıklama |
-|---|---|---|---|
-| `GET` | `/librarian/catalog` | `task_type=general\|coding\|reasoning\|chat\|fast`, `only_free=bool`, `include_online=bool` | Donanım sınırlarına göre puanlanmış model kataloğunu; istenirse canlı OpenRouter ve HuggingFace modellerini döndürür. |
-| `GET` | `/scout/report` | `include_online=bool` | Donanım verimliliği, eksik araçlar ve istenirse trend GitHub AI kütüphanelerini içeren denetim raporu üretir. |
-
-### 9. Proje ve Çalışma Alanı İnşası (Workspace Builder)
-| Yöntem | Uç Nokta | Parametreler & Gövde | Açıklama |
-|---|---|---|---|
-| `POST` | `/workspace/build` | `WorkspaceBuildRequest`: `{ "prompt": str, "workspace": str, "model": "auto"|str }` | LLM çıktılarından çoklu dosya bloklarını (`### FILE: <path>` / JSON) ayrıştırıp hedef çalışma alanına (`core/workspace_builder.py` - Otomatik Proje/Dosya İnşa Motoru) güvenli ve eksiksiz şekilde otomatik yazar. |
+| `POST` | `/query` | İstemleri akıllı yönlendirme, eskalasyon, paralel yürütme ve MoA senteziyle çözer. |
+| `GET` | `/cli/tools` | Sistemdeki 5 CLI ajanının (`agy`, `claude`, `codex`, `opencode`, `hermes`) durumunu döner. |
+| `GET` | `/hardware/info` | GPU VRAM, CPU çekirdekleri ve RAM miktarını raporlar. |
+| `GET` | `/scout/report` | Teknoloji Gözcüsü ve otonom evrim raporunu döndürür. |
+| `GET` | `/librarian/catalog` | Donanıma göre puanlanmış ve filtrelenmiş model kataloğunu listeler. |
+| `POST` | `/workspace/build` | LLM çıktılarından çoklu dosya bloklarını ayrıştırıp projeyi diskte inşa eder. |
+| `POST` | `/hardware/llm-benchmark` | Yerel Ollama modellerinde gerçek Token/sn ve TTFT hız testi yapar. |
 
 ---
 
 ## 🚀 Hızlı Başlangıç
 
-### 1. Kurulum ve Doğrulama
-Tek bir komutla sanal ortamı (`.venv`) kurabilir, bağımlılıkları yükleyebilir ve birim testlerini çalıştırabilirsiniz:
+### 1. Kurulum
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup.ps1
 ```
 
-### 2. Sunucu ve Kontrol Panelini Başlatma
-Arka uç API sunucusu (`FastAPI`) ve kullanıcı arayüzünü (`Streamlit`) eşzamanlı olarak başlatmak için:
+### 2. Otonom Evrim Motorunu Çalıştırma
+```powershell
+.\.venv\Scripts\python.exe -m core.tech_scout
+```
+
+### 3. Arka Uç ve Kontrol Panelini Başlatma
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\run.ps1
 ```
 - **REST API Sunucusu:** `http://127.0.0.1:8000`
 - **Streamlit Kontrol Paneli:** `http://localhost:8501`
 
-*(Not: `run.ps1` betiği `--server.headless true` ve `--browser.gatherUsageStats false` bayraklarıyla yapılandırılmıştır; ilk açılışta e-posta sorma ekranına takılmadan doğrudan paneli açar).*
-
-### 3. Testleri Çalıştırma
-Tüm çekirdek orkestrasyon, eskalasyon, yönlendirme ve CLI testlerini çevrimdışı çalıştırmak için:
+### 4. Testleri Doğrulama
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
-*(Toplam 51 birim testi ağ bağlantısından bağımsız olarak hatasız geçmektedir).*
+*(119 birim testi ağ bağlantısından bağımsız olarak hatasız geçmektedir).*
+
+---
+
+## 📜 Lisans & Açık Kaynak
+Bu proje MIT lisansı altında açık kaynak olarak sunulmaktadır. $0.00 API Shield ilkesine sadık kalarak dilediğiniz gibi geliştirebilir, modüllerini kendi projelerinizde kullanabilirsiniz.

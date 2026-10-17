@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "_comment": "4K AI WORKSTATION - OpenCode Temiz Yapılandırma Şablonu ($0.00 API Shield Uyumlu)",
+  "model": "opencode/deepseek-v4.1-flash-free",
+  "small_model": "opencode/nemotron-3-ultra-free",
+  "default_local_model": "ollama/llama3:latest",
+  "agents": {
+    "coding": {
+      "model": "opencode/deepseek-v4.1-flash-free"
+    },
+    "reasoning": {
+      "model": "opencode/nemotron-3-ultra-free"
+    },
+    "local": {
+      "model": "ollama/llama3:latest"
+    }
+  },
+  "mcp": {
+    "servers": {
+      "free-ai-hub": {
+        "type": "local",
+        "command": [
+          "python",
+          "wrappers/opencode_free_hub_mcp.py"
+        ],
+        "description": "19 Araçlı Ücretsiz Yapay Zeka, AST Haritalama ve Çoklu Ajan Konsensus Hub'ı"
+      }
+    }
+  }
+}
